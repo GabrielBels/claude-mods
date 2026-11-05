@@ -1,0 +1,98 @@
+{
+  "name": "whats-in-qa",
+  "version": "0.2.0",
+  "description": "/whats-in-qa lists the Jira tickets already deployed to an Octopus environment (QA) and ready to test, matched by ticket key in the deployed commits",
+  "author": {
+    "name": "Gabriel Belisario",
+    "url": "https://github.com/GabrielBels"
+  },
+  "license": "MIT",
+  "keywords": [
+    "claude-mods",
+    "team",
+    "qa",
+    "octopus",
+    "jira"
+  ],
+  "userConfig": {
+    "sprint": {
+      "type": "string",
+      "title": "Sprint",
+      "description": "Sprint name (\"Sprint 45\"), sprint id, or open for every open sprint of the projects. Empty: no sprint filter.",
+      "default": "open"
+    },
+    "projects": {
+      "type": "string",
+      "title": "Jira projects",
+      "description": "Comma-separated Jira project keys, e.g. PROJ,CORE.",
+      "default": ""
+    },
+    "components": {
+      "type": "string",
+      "title": "Components",
+      "description": "Comma-separated components to include. Empty: any component.",
+      "default": ""
+    },
+    "statuses": {
+      "type": "string",
+      "title": "Only statuses",
+      "description": "Comma-separated statuses to include. Empty: any status.",
+      "default": ""
+    },
+    "excludeStatuses": {
+      "type": "string",
+      "title": "Excluded statuses",
+      "description": "Comma-separated statuses to leave out.",
+      "default": "Ready to Ship,Done,Cancelled"
+    },
+    "assignee": {
+      "type": "string",
+      "title": "Assignee",
+      "description": "me, or comma-separated account ids. Empty: anyone.",
+      "default": ""
+    },
+    "labels": {
+      "type": "string",
+      "title": "Labels",
+      "description": "Comma-separated labels to include. Empty: any label.",
+      "default": ""
+    },
+    "extraJql": {
+      "type": "string",
+      "title": "Extra JQL",
+      "description": "Any extra JQL clause, ANDed with the filters above.",
+      "default": ""
+    },
+    "jiraSite": {
+      "type": "string",
+      "title": "Jira site",
+      "description": "Your Jira Cloud host (e.g. acme.atlassian.net), read through the claude.ai Atlassian connector",
+      "default": "",
+      "sensitive": true
+    },
+    "octopusSpace": {
+      "type": "string",
+      "title": "Octopus space",
+      "description": "Octopus space name, read through the Octopus Deploy MCP server",
+      "default": ""
+    },
+    "octopusEnvironment": {
+      "type": "string",
+      "title": "Octopus environment",
+      "description": "Environment whose latest successful deployments are checked.",
+      "default": "qa"
+    },
+    "octopusProjects": {
+      "type": "string",
+      "title": "Octopus projects",
+      "description": "Comma-separated Octopus project names whose releases carry GitHub build information.",
+      "default": ""
+    },
+    "lookbackDays": {
+      "type": "number",
+      "title": "Commit window (days)",
+      "description": "How many days of the deployed build's history are searched for ticket keys.",
+      "default": 45
+    }
+  }
+}

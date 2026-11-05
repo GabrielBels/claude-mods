@@ -5,8 +5,8 @@
     "url": "https://github.com/GabrielBels"
   },
   "metadata": {
-    "description": "Claude Code mods by Gabriel Belisario: standup, handoff and tick-sprint.",
-    "version": "2.0.0"
+    "description": "Claude Code mods by Gabriel Belisario: standup, handoff, tick-sprint and whats-in-qa.",
+    "version": "2.1.0"
   },
   "plugins": [
     {
@@ -58,6 +58,24 @@
         "team",
         "tick",
         "timesheet",
+        "jira"
+      ]
+    },
+    {
+      "name": "whats-in-qa",
+      "source": "./whats-in-qa",
+      "description": "/whats-in-qa lists the Jira tickets already deployed to an Octopus environment (QA) and ready to test, matched by ticket key in the deployed commits.",
+      "version": "0.2.0",
+      "author": {
+        "name": "Gabriel Belisario",
+        "url": "https://github.com/GabrielBels"
+      },
+      "category": "team",
+      "keywords": [
+        "claude-mods",
+        "team",
+        "qa",
+        "octopus",
         "jira"
       ]
     }

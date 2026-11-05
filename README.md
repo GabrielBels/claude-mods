@@ -1,6 +1,6 @@
 # claude-mods
 
-**Three Claude Code mods for the paperwork around the code: the daily standup, the ticket handoff and the timesheet.**
+**Four Claude Code mods for the paperwork around the code: the daily standup, the ticket handoff, the timesheet and what QA can test.**
 
 They read what you already left behind in git, Jira and your Claude Code and Codex sessions, and hand you text that is ready to paste. Each one is a slash command, and each answer also opens in a pane with a Copy button.
 
@@ -9,6 +9,7 @@ They read what you already left behind in git, Jira and your Claude Code and Cod
 | [**standup**](standup/README.md) | `/standup` | One line per ticket about what you did since the last standup, each ending with the ticket's real status from Jira and GitHub. |
 | [**handoff**](handoff/README.md) | `/handoff PROJ-2458` | A short handoff note (Goal, Status, What changed, Next steps, Gotchas, How to verify) built from Jira, git, your other sessions and the current conversation. |
 | [**tick-sprint**](tick-sprint/README.md) | `/tick 72` | Your 72 sprint hours split across your Jira epics, weighted by how long each issue was really in progress, ready to log in Tick. |
+| [**whats-in-qa**](whats-in-qa/README.md) | `/whats-in-qa` | The sprint tickets whose code is already in the build deployed to QA, plus the ones partly deployed or merged and waiting for a deploy. |
 
 ```text
 /standup
@@ -24,24 +25,26 @@ To add the marketplace and install a mod, type this at the prompt of a Claude Co
 /plugin install standup --marketplace GabrielBels/claude-mods
 /plugin install handoff --marketplace GabrielBels/claude-mods
 /plugin install tick-sprint --marketplace GabrielBels/claude-mods
+/plugin install whats-in-qa --marketplace GabrielBels/claude-mods
 ```
 
 From a shell, use `claude plugin install <mod> --marketplace GabrielBels/claude-mods`. In the desktop app, where `/plugin` does not run, click **+** next to the prompt box, then **Plugins**, **Add marketplace** with `GabrielBels/claude-mods`, then **Add plugin**.
 
-The install shows a settings screen for each mod. Every option has a default except the Jira location, described below. To change a setting later, open `/plugin` and configure the mod.
+The install shows a settings screen for each mod. Every option has a default except the Jira location (and, for whats-in-qa, the Octopus space and projects), described below. To change a setting later, open `/plugin` and configure the mod.
 
 ## What each mod needs
-| | standup | handoff | tick-sprint |
-| --- | --- | --- | --- |
-| git | yes | yes | — |
-| Python 3 | yes | yes | — |
-| GitHub CLI (`gh`, signed in) | for PR status | for the ticket's PRs | — |
-| Jira | optional: `jiraApi` + credentials | optional: `jiraApi` + credentials | required: `jiraSite` + the claude.ai Atlassian connector |
-| svn | optional, for svn working copies | optional, for svn working copies | — |
+| | standup | handoff | tick-sprint | whats-in-qa |
+| --- | --- | --- | --- | --- |
+| git | yes | yes | — | — |
+| Python 3 | yes | yes | — | — |
+| GitHub CLI (`gh`, signed in) | for PR status | for the ticket's PRs | — | required |
+| Jira | optional: `jiraApi` + credentials | optional: `jiraApi` + credentials | required: `jiraSite` + the claude.ai Atlassian connector | required: `jiraSite` + the claude.ai Atlassian connector |
+| Octopus Deploy MCP server | — | — | — | required |
+| svn | optional, for svn working copies | optional, for svn working copies | — | — |
 
 ## Your secrets stay on your machine
-- **Jira location:** `jiraApi` (standup, handoff) and `jiraSite` (tick-sprint) are *sensitive* plugin options. Claude Code keeps them in its secure storage, not in `settings.json`, and nothing in this repository holds anyone's values.
-- **Jira credentials:** standup and handoff read Jira with an API token from the `JIRA_API_EMAIL` and `JIRA_API_TOKEN` environment variables, or from `~/.jira-cred` (`email:token`). tick-sprint uses the claude.ai Atlassian connector you already signed in to, so it needs no token.
+- **Jira location:** `jiraApi` (standup, handoff) and `jiraSite` (tick-sprint, whats-in-qa) are *sensitive* plugin options. Claude Code keeps them in its secure storage, not in `settings.json`, and nothing in this repository holds anyone's values.
+- **Jira credentials:** standup and handoff read Jira with an API token from the `JIRA_API_EMAIL` and `JIRA_API_TOKEN` environment variables, or from `~/.jira-cred` (`email:token`). tick-sprint and whats-in-qa use the claude.ai Atlassian connector you already signed in to, so they need no token. whats-in-qa reads Octopus through your Octopus Deploy MCP server and GitHub through your `gh` sign-in.
 - **Your sessions:** the mods read your own prompts and session titles, never tool output. The model that writes the text gets only that activity, not your conversation history.
 
 ## Develop
