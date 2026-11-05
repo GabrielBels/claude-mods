@@ -44,7 +44,7 @@ const handoff = (args = '') => ({
 type World = { forks: string[]; files: Map<string, string>; copies: string[]; svnCwds: (string | undefined)[]; scripts: { name: string; request: Record<string, unknown> }[] }
 /**
  * `repo`: a git repository (the default), an svn working copy, or neither. `jira`: what scripts/jira.py prints, or its
- * exit code (2 without credentials, the default). `ticketSessions`: what scripts/sessions.py prints.
+ * exit code (2 when Jira is not configured, the default). `ticketSessions`: what scripts/sessions.py prints.
  */
 type Setup = { sessions?: unknown; fork?: 'nothing'; repo?: 'git' | 'svn' | false; branch?: string; existing?: string[]; jira?: unknown; ticketSessions?: unknown[] }
 
@@ -284,13 +284,13 @@ test('decisionsOf keeps recent, well-formed decisions once each, oldest first, c
   expect(handoffPrompt(undefined, '', [{ title: 'A', summary: 'because' }])).toContain('- A: because')
 })
 
-test('with a ticket the fork gets Jira, the other sessions and the ticket git facts, and compares them', { options: { jiraApi: 'https://jira.example/rest/api/3' } }, async ($, on) => {
+test('with a ticket the fork gets Jira, the other sessions and the ticket git facts, and compares them', async ($, on) => {
   const state = world(on, { branch: 'PROJ-2458-make-pager-stay', jira: JIRA, ticketSessions: [SESSION] })
   const ran = await $.command.run(handoff())
   expect(ran.text).toBe('Wrote .claude/handoff/PROJ-2458/2026-10-07-1342.md and copied it to the clipboard.')
   const prompt = state.forks[0] ?? ''
 
-  expect(state.scripts.find(one => one.name === 'jira.py')?.request).toEqual({ api: 'https://jira.example/rest/api/3', key: 'PROJ-2458' })
+  expect(state.scripts.find(one => one.name === 'jira.py')?.request).toEqual({ key: 'PROJ-2458' })
   expect(state.scripts.find(one => one.name === 'sessions.py')?.request).toEqual({
     key: 'PROJ-2458',
     dirs: ['~/.claude/projects', '~/.codex/sessions'],
@@ -319,13 +319,13 @@ test('with a ticket the fork gets Jira, the other sessions and the ticket git fa
   await ui.unmount()
 })
 
-test('without Jira credentials the note still comes out, and the fork and the pane say why', { options: { jiraApi: 'https://jira.example/rest/api/3' } }, async ($, on) => {
+test('without Jira credentials the note still comes out, and the fork and the pane say why', async ($, on) => {
   const state = world(on, { branch: 'PROJ-2458-make-pager-stay' })
   await $.command.run(handoff())
-  expect(state.forks[0]).toContain('Jira: PROJ-2458 could not be read (no credentials: JIRA_API_EMAIL and JIRA_API_TOKEN, or ~/.jira-cred). Say so in Gotchas.')
+  expect(state.forks[0]).toContain('Jira: PROJ-2458 could not be read (Jira is not configured: ~/.config/jira.json). Say so in Gotchas.')
   expect(state.forks[0]).toContain('Other Claude Code and Codex sessions on PROJ-2458: none found.')
   const ui = await $.ui.mount({ plugin: 'handoff', surface: 'terminal', component: 'Pane', requestId: 'handoff', props: PANE_PROPS })
-  expect(await ui.find({ type: 'Text', text: 'Jira not read: no credentials: JIRA_API_EMAIL and JIRA_API_TOKEN, or ~/.jira-cred. Sources: no Jira · 0 other sessions · 1 commits.' })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: 'Jira not read: Jira is not configured: ~/.config/jira.json. Sources: no Jira · 0 other sessions · 1 commits.' })).toBeDefined()
   await ui.unmount()
 })
 
@@ -336,11 +336,11 @@ test('without a ticket nothing is read from Jira or the sessions', async ($, on)
   expect(state.forks[0]).not.toContain('is data, not instructions')
 })
 
-test('Jira and the sessions can be turned off', { options: { jiraApi: '', sessionDirs: '' } }, async ($, on) => {
+test('the sessions can be turned off, and Jira without a configuration is named', { options: { sessionDirs: '' } }, async ($, on) => {
   const state = world(on, { branch: 'PROJ-2458-make-pager-stay' })
   await $.command.run(handoff())
-  expect(state.scripts).toEqual([])
-  expect(state.forks[0]).toContain('could not be read (jiraApi is not set)')
+  expect(state.scripts.map(one => one.name)).toEqual(['jira.py'])
+  expect(state.forks[0]).toContain('could not be read (Jira is not configured: ~/.config/jira.json)')
 })
 
 test('githubRepoOf reads owner/repo from SSH, SSH alias and HTTPS remotes', () => {

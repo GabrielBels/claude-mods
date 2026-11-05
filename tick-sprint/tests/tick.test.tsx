@@ -1,4 +1,5 @@
 import { expect, test } from 'claude-code/testing'
+import type { TestBody } from 'claude-code/testing'
 
 import { activeMs, allocate, buildReport, formatDay, parseArgs, resolveSprint } from '../hooks/tick'
 import type { Issue, Settings, Sprint } from '../hooks/tick'
@@ -112,82 +113,75 @@ test('the hours given are split by each epic\'s active time', async () => {
   expect(r.notes.some(n => n.includes('Sprint in progress'))).toBe(true)
 })
 
-// The connector's answers, as the Atlassian MCP returns them: JSON in a text block.
-const reply = (text: string) => ({ value: { content: [{ type: 'text', text }], isError: false } })
-const SAVED = '/home/me/.claude/projects/x/tool-results/search.txt'
-const searchJson = JSON.stringify({
-  issues: {
-    nodes: ISSUES.map(i => ({
-      key: i.key,
-      fields: {
-        summary: i.summary,
-        status: { name: i.status },
-        assignee: { accountId: i.assigneeId },
-        parent: i.epic ? { key: i.epic, fields: { summary: i.epicName, issuetype: { name: 'Epic' } } } : undefined,
-      },
-    })),
-    pageInfo: { hasNextPage: false },
-  },
-  context: { atlassianAccountId: 'me' },
-})
-const changelogOf = (issue: Issue) =>
-  JSON.stringify({
-    issues: {
-      nodes: [
-        {
-          key: issue.key,
-          changelog: {
-            total: issue.histories.length,
-            histories: issue.histories.map(h => ({ created: new Date(h.created).toISOString(), items: h.items })),
-          },
-        },
-      ],
+// The Jira REST API as the mod sees it through $.http.fetch, configured by ~/.config/jira.json.
+const CONFIG = JSON.stringify({ apiBase: 'https://jira.example/rest/api/3/', email: 'alice@acme.test', token: 't0ken' })
+const ok = (data: unknown) => ({ value: { status: 200, ok: true, headers: {}, text: JSON.stringify(data) } })
+const searchPage = {
+  issues: ISSUES.map(i => ({
+    key: i.key,
+    fields: {
+      summary: i.summary,
+      status: { name: i.status },
+      assignee: { accountId: i.assigneeId },
+      parent: i.epic ? { key: i.epic, fields: { summary: i.epicName, issuetype: { name: 'Epic' } } } : undefined,
     },
+  })),
+  isLast: true,
+}
+// A-1's changelog comes in two pages, to show that paging is followed.
+const changelogPage = (issue: Issue, startAt: number) => {
+  const all = issue.histories.map(h => ({ created: new Date(h.created).toISOString(), items: h.items }))
+  const size = issue.key === 'A-1' ? 2 : 100
+  const values = all.slice(startAt, startAt + size)
+  return { startAt, maxResults: size, total: all.length, isLast: startAt + values.length >= all.length, values }
+}
+
+type Request = { url: string; method: string; body?: unknown; auth?: string }
+
+function fakeJira(on: Parameters<TestBody>[1], config: string | undefined, requests: Request[]) {
+  on('env.get', (_, e) => ({ value: e.name === 'HOME' ? '/home/alice' : undefined }))
+  on('fs.read', (_, e) => {
+    if (e.path !== '/home/alice/.config/jira.json' || config === undefined) throw new Error('ENOENT')
+    return { value: config }
   })
+  on('http.fetch', (_, e) => {
+    const method = e.init?.method ?? 'GET'
+    const body = e.init?.body === undefined ? undefined : JSON.parse(e.init.body)
+    requests.push({ url: e.url, method, body, auth: e.init?.headers?.Authorization })
+    const path = e.url.replace('https://jira.example/rest/api/3', '')
+    if (path === '/myself') return ok({ accountId: 'me' })
+    if (path === '/search/jql') return ok(searchPage)
+    const m = /^\/issue\/([^/]+)\/changelog\?startAt=(\d+)/.exec(path)
+    if (m) return ok(changelogPage(ISSUES.find(i => i.key === m[1]) as Issue, Number(m[2])))
+    return { value: { status: 404, ok: false, headers: {}, text: '' } }
+  })
+}
 
 const PANE_PROPS = {
   title: 'Tick · sprint', isFocused: false, bodyColumns: 80, placement: 'dock', scroll: { offset: 0, bodyRows: 40 }, view: {},
 } as const
+const TICK = (args: string) => ({ command: 'tick', args, origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 160 } }) as const
 
-test('/tick 32 reads Jira, oversized answers from their saved file, and fills the pane', { options: { jiraSite: 'acme.atlassian.net' } }, async ($, on) => {
-  const reads: string[] = []
+test('/tick 32 reads Jira with ~/.config/jira.json, follows changelog pages and fills the pane', async ($, on) => {
+  const requests: Request[] = []
   on('command.register', () => ({ value: { command: 'tick' } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('clock.now', () => ({ value: NOW }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
-  // The changelog of A-1 comes back in the other wording, as a persisted output.
-  const savedA = '/home/me/.claude/projects/x/tool-results/a-1.txt'
-  on('fs.read', (_, e) => {
-    reads.push(e.path)
-    return { value: e.path === savedA ? changelogOf(ISSUES[0] as Issue) : searchJson }
-  })
-  const jqls: unknown[] = []
-  on('mcp.call', (_, e) => {
-    if (e.tool === 'searchJiraIssuesUsingJql') {
-      jqls.push(e.args.jql)
-      return reply(
-        `Error: result (314,092 characters) exceeds maximum allowed tokens. Output has been saved to ${SAVED}.\nFormat: JSON`,
-      )
-    }
-    if (e.args.issueIdOrKey === 'A-1') {
-      return reply(
-        `<persisted-output>\nOutput too large (49.1KB). Full output saved to: ${savedA}\n\nPreview (first 2KB):\n{"issues"`,
-      )
-    }
-    return reply(changelogOf(ISSUES.find(i => i.key === e.args.issueIdOrKey) as Issue))
-  })
+  fakeJira(on, CONFIG, requests)
 
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
-  const out = await $.command.run({
-    command: 'tick',
-    args: '32',
-    origin: { kind: 'composer' },
-    presentation: { isFullscreen: true, columns: 160 },
-  })
+  const out = await $.command.run(TICK('32'))
 
-  expect(reads).toEqual([SAVED, savedA])
-  expect(jqls).toEqual([
+  const search = requests.find(r => r.url.endsWith('/search/jql'))
+  expect(search?.method).toBe('POST')
+  expect((search?.body as { jql: string }).jql).toBe(
     'assignee was currentUser() DURING ("2026/10/28", "2026/11/11") AND (status changed DURING ("2026/10/28", "2026/11/11") OR statusCategory = "In Progress") ORDER BY key',
+  )
+  expect(search?.auth).toBe(`Basic ${btoa('alice@acme.test:t0ken')}`)
+  expect(requests.filter(r => r.url.includes('/issue/A-1/changelog')).map(r => r.url.split('?')[1])).toEqual([
+    'startAt=0&maxResults=100',
+    'startAt=2&maxResults=100',
   ])
   expect(out.text).toContain('15.25h  Geo (E-1)')
   expect(out.text).toContain('10.75h  (no epic)')
@@ -201,24 +195,31 @@ test('/tick 32 reads Jira, oversized answers from their saved file, and fills th
   }
 })
 
-test('/tick without hours says how to call it and reads nothing', { options: { jiraSite: 'acme.atlassian.net' } }, async ($, on) => {
-  let calls = 0
+test('/tick without ~/.config/jira.json says how to configure Jira and calls nothing', async ($, on) => {
+  const requests: Request[] = []
+  on('command.register', () => ({ value: { command: 'tick' } }))
+  on('ui.open', () => ({ value: { isPlaced: true } }))
+  on('clock.now', () => ({ value: NOW }))
+  on('session.start', (_, e) => ({ cwd: e.cwd }))
+  fakeJira(on, undefined, requests)
+
+  await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
+  const out = await $.command.run(TICK('32'))
+
+  expect(out.text).toContain('Jira is not configured: create ~/.config/jira.json')
+  expect(requests).toEqual([])
+})
+
+test('/tick without hours says how to call it and reads nothing', async ($, on) => {
+  const requests: Request[] = []
   on('command.register', () => ({ value: { command: 'tick' } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
-  on('mcp.call', () => {
-    calls += 1
-    return reply('{}')
-  })
+  fakeJira(on, CONFIG, requests)
 
   await $.session.start({ cwd: '/', surface: 'desktop', isInteractive: true })
-  const out = await $.command.run({
-    command: 'tick',
-    args: '-1',
-    origin: { kind: 'composer' },
-    presentation: { isFullscreen: true, columns: 160 },
-  })
+  const out = await $.command.run(TICK('-1'))
 
   expect(out.text).toContain('Give the hours you worked')
-  expect(calls).toBe(0)
+  expect(requests).toEqual([])
 })

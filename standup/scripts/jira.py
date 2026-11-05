@@ -1,12 +1,11 @@
 """Prints where Jira tickets stand (status and assignee), as JSON, for /standup.
 
-Usage: python3 -I jira.py '{"api": "<Jira REST API v3 base>", "keys": ["PROJ-1", ...], "name": "<your name>"}'
+Usage: python3 -I jira.py '{"keys": ["PROJ-1", ...], "name": "<your name>"}'
 
-`api` is the REST API v3 base, e.g. https://<site>.atlassian.net/rest/api/3 or the Atlassian API gateway's
-https://api.atlassian.com/ex/jira/<cloud id>/rest/api/3. Credentials come from JIRA_API_EMAIL and JIRA_API_TOKEN, or
-else from ~/.jira-cred ("email:token"); they are only sent to `api`. A ticket is yours when its assignee is the token's
+Jira access comes from ~/.config/jira.json ({"apiBase", "email", "token"}, mode 600), with JIRA_API_BASE,
+JIRA_API_EMAIL and JIRA_API_TOKEN over it; the credentials are only sent to apiBase. A ticket is yours when its assignee is the token's
 account (/myself), or, when the token cannot read /myself, has the token's email or `name`.
-Output: {key: {status, isDone, assignee, isMine}} for each key Jira answered; exit 2 without credentials.
+Output: {key: {status, isDone, assignee, isMine}} for each key Jira answered; exit 2 when Jira is not configured.
 """
 
 import base64
@@ -21,16 +20,20 @@ from concurrent.futures import ThreadPoolExecutor
 TIMEOUT_S = 20
 
 
-def credentials():
-    email, token = os.environ.get("JIRA_API_EMAIL"), os.environ.get("JIRA_API_TOKEN")
-    if email and token:
-        return email, token
+CONFIG_PATH = os.path.expanduser("~/.config/jira.json")
+
+
+def config():
+    """(apiBase, email, token): JIRA_API_BASE, JIRA_API_EMAIL and JIRA_API_TOKEN over ~/.config/jira.json; None when incomplete."""
     try:
-        with open(os.path.expanduser("~/.jira-cred"), encoding="utf-8") as f:
-            email, _, token = f.read().strip().partition(":")
-    except OSError:
-        return None
-    return (email, token) if email and token else None
+        with open(CONFIG_PATH, encoding="utf-8") as f:
+            found = json.load(f)
+    except (OSError, ValueError):
+        found = {}
+    api = os.environ.get("JIRA_API_BASE") or found.get("apiBase") or ""
+    email = os.environ.get("JIRA_API_EMAIL") or found.get("email") or ""
+    token = os.environ.get("JIRA_API_TOKEN") or found.get("token") or ""
+    return (api.rstrip("/"), email, token) if api and email and token else None
 
 
 def get(url, auth):
@@ -44,11 +47,10 @@ def get(url, auth):
 
 def main():
     request = json.loads(sys.argv[1])
-    api = request["api"].rstrip("/")
-    found = credentials()
+    found = config()
     if found is None:
         sys.exit(2)
-    email, token = found
+    api, email, token = found
     auth = "Basic " + base64.b64encode(f"{email}:{token}".encode()).decode()
     name = (request.get("name") or "").strip().lower()
     me = (get(f"{api}/myself", auth) or {}).get("accountId")

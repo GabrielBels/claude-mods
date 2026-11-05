@@ -474,7 +474,7 @@ test('ticket facts: PRs by title or branch, Jira status as each bullet\'s ending
     .toEqual(['PROJ-2219', 'PROJ-2425', 'PROJ-2440'])
 })
 
-test('with jiraApi, Jira and your PRs tell the model where each ticket stands and end each bullet', { options: { ...DSU, jiraApi: 'https://jira.example/rest/api/3' } }, async ($, on) => {
+test('with Jira configured, Jira and your PRs tell the model where each ticket stands and end each bullet', { options: { ...DSU } }, async ($, on) => {
   const now = Date.UTC(2026, 10, 4, 21, 55)
   const state = world(on, {
     now,
@@ -490,7 +490,7 @@ test('with jiraApi, Jira and your PRs tell the model where each ticket stands an
   })
   await $.command.run(run())
   expect(state.gitCalls.find(args => args[0] === 'pr')).toEqual(expect.arrayContaining(['--repo', 'Acme/shop']))
-  expect(state.jiraRequests).toEqual([{ api: 'https://jira.example/rest/api/3', keys: ['PROJ-2219', 'PROJ-2425', 'PROJ-2440', 'PROJ-2408'], name: 'Dev' }])
+  expect(state.jiraRequests).toEqual([{ keys: ['PROJ-2219', 'PROJ-2425', 'PROJ-2440', 'PROJ-2408'], name: 'Dev' }])
   const prompt = state.prompts[0] ?? ''
   expect(prompt).toContain('Ticket status from Jira and GitHub:\n- PROJ-2219: PR #1890 merged 2026-11-04\n- PROJ-2425: Jira "In Progress", assigned to you')
   expect(prompt).toContain('PROJ-2440: Jira "In Progress", assigned to Jane Doe (not you)')
@@ -499,11 +499,12 @@ test('with jiraApi, Jira and your PRs tell the model where each ticket stands an
   expect(state.copies[0]).toBe('- PROJ-2425: Mapped references (In Progress)\n- PROJ-2440: Handed over (In Progress, assigned to Jane Doe)\n- PROJ-2219: Fixed totals (PR #1890 merged)')
 })
 
-test('without jiraApi Jira is not asked, and a failing gh is named in the detail line', async ($, on) => {
+test('without Jira configured, Jira is left out quietly, and a failing gh is named in the detail line', async ($, on) => {
   const state = world(on, { log: '2026-10-06\ta1b2c3d\tPROJ-2219: fix totals' })
   const ran = await $.command.run(run())
-  expect(state.jiraRequests).toHaveLength(0)
+  expect(state.jiraRequests).toHaveLength(1)
   expect(ran.text).toContain('could not read PRs (gh)')
+  expect(ran.text).not.toMatch(/could not read[^\n]*Jira/)
 })
 
 test('the update generated on 4 Nov is held to one ticket per bullet and one reviews line', () => {

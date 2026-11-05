@@ -41,11 +41,10 @@ Issues (hours in an active status, the base of the split):
 Sprints follow a fixed cadence from an anchor date: with `sprintAnchor` `2026-10-28` and `sprintDays` `14`, a sprint runs from 28/10 to 11/11, the day the next one starts.
 
 ## Setup
-The mod reads Jira through the claude.ai Atlassian connector, so it needs no API token. The connector must be connected in your Claude Code session (`/mcp` lists it as `claude.ai Atlassian Rovo`).
+The mod reads Jira's REST API with `~/.config/jira.json`; to create it, follow the [repository README](../README.md#jira-setup). `/tick` asks for it until it exists.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `jiraSite` | string (sensitive) | `""` | Your Jira Cloud site (`acme.atlassian.net`), kept in Claude Code's secure storage. Required: `/tick` asks for it until it is set. |
 | `sprintAnchor` | string | `2026-10-28` | Any date a sprint started on (`YYYY-MM-DD`). |
 | `sprintDays` | number | `14` | Calendar days from one sprint's start to the next one's. |
 | `utcOffsetHours` | number | `-3` | Where each day starts and ends, in hours from UTC. |
@@ -54,7 +53,7 @@ The mod reads Jira through the claude.ai Atlassian connector, so it needs no API
 Leave `Code Review` and `Dev Testing` out of `activeStatuses` when an issue sits there waiting for other people: otherwise those days weigh as much as days you spent coding.
 
 ## How it works
-- `/tick` runs one JQL search through the connector (`assignee was currentUser() DURING (…) AND (status changed DURING (…) OR statusCategory = "In Progress")`), then reads each issue's changelog, four at a time.
+- `/tick` runs one JQL search (`/search/jql`: `assignee was currentUser() DURING (…) AND (status changed DURING (…) OR statusCategory = "In Progress")`), then reads each issue's changelog, four at a time.
 - The status and assignee timeline of each issue is rebuilt from its changelog and cut to the sprint and to the present.
-- When an answer is larger than Claude Code's MCP output limit, Claude Code saves it to a file and the mod reads it from there.
+- Changelogs are read page by page, so long-lived issues are counted in full.
 - The pane draws from the session's state; nothing runs in the background.

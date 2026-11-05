@@ -28,10 +28,10 @@ const DAY_MS = 86_400_000
 const viewAtom = atom({ plugin: 'handoff', key: 'view' } as const, null)
 
 /**
- * `jiraApi`: the Jira REST API v3 base the ticket is read from ('' leaves Jira out). `sessionDirs`: the Claude Code
+ * Jira is read with ~/.config/jira.json (scripts/jira.py). `sessionDirs`: the Claude Code
  * projects and Codex sessions folders searched for sessions on the ticket ([] leaves them out), `sessionDays` back.
  */
-type Settings = { dir: string; copy: boolean; jiraApi: string; sessionDirs: string[]; sessionDays: number; isHubbed: boolean }
+type Settings = { dir: string; copy: boolean; sessionDirs: string[]; sessionDays: number; isHubbed: boolean }
 
 /** A failure's detail is a lowercase clause; as a command answer it starts a sentence. */
 const asSentence = (clause: string): string => clause.charAt(0).toUpperCase() + clause.slice(1)
@@ -96,10 +96,9 @@ async function script($: EngineInterface, name: string, request: unknown): Promi
 }
 
 async function readJira($: EngineInterface, settings: Settings, key: string): Promise<Pick<TicketFacts, 'jira' | 'jiraError'>> {
-  if (settings.jiraApi === '') return { jiraError: 'jiraApi is not set' }
-  const run = await script($, 'jira.py', { api: settings.jiraApi, key })
+  const run = await script($, 'jira.py', { key })
   if (run === undefined) return { jiraError: 'python3 could not run scripts/jira.py' }
-  if (run.exitCode === 2) return { jiraError: 'no credentials: JIRA_API_EMAIL and JIRA_API_TOKEN, or ~/.jira-cred' }
+  if (run.exitCode === 2) return { jiraError: 'Jira is not configured: ~/.config/jira.json' }
   if (run.exitCode !== 0) return { jiraError: 'Jira did not answer for this key (network, permission or a wrong key)' }
   try {
     return { jira: JSON.parse(run.stdout) as JiraTicket }
@@ -256,7 +255,6 @@ async function writeHandoff($: EngineInterface, settings: Settings, note: string
   return set({ status: 'ready', text, path, isCopied, detail })
 }
 
-const DEFAULT_JIRA_API = ''
 const DEFAULT_SESSION_DIRS = '~/.claude/projects, ~/.codex/sessions'
 
 export const register: Register = (on, options) => {
@@ -264,7 +262,6 @@ export const register: Register = (on, options) => {
   const settings: Settings = {
     dir: String(options.dir ?? '').trim().replace(/^\.\/|\/+$/g, '') || '.claude/handoff',
     copy: options.copy !== false,
-    jiraApi: String(options.jiraApi ?? DEFAULT_JIRA_API).trim(),
     sessionDirs: String(options.sessionDirs ?? DEFAULT_SESSION_DIRS).split(',').map(dir => dir.trim()).filter(Boolean),
     sessionDays: Number.isFinite(days) && days > 0 ? days : 90,
     isHubbed: false,

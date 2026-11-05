@@ -27,13 +27,6 @@
       "description": "Put each new note on the clipboard.",
       "default": true
     },
-    "jiraApi": {
-      "type": "string",
-      "title": "Jira API",
-      "description": "Jira REST API v3 base the ticket is read from, with JIRA_API_EMAIL and JIRA_API_TOKEN or ~/.jira-cred (email:token). Empty leaves Jira out.",
-      "default": "",
-      "sensitive": true
-    },
     "sessionDirs": {
       "type": "string",
       "title": "Session folders",

@@ -43,13 +43,12 @@ With a ticket, the mod gathers these sources at once, before the model writes:
 The note is about the ticket even when the current conversation was about something else.
 
 ## Setup
-To read Jira, set `jiraApi` and give the mod an API token through the `JIRA_API_EMAIL` and `JIRA_API_TOKEN` environment variables, or `~/.jira-cred` (`email:token`). Without them the note still comes out, and Gotchas says Jira was not read.
+To read Jira, create `~/.config/jira.json` as the [repository README](../README.md#jira-setup) shows. Without it the note still comes out, and Gotchas says Jira was not read.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
 | `dir` | string | `.claude/handoff` | Folder for the notes, relative to the project root. |
 | `copy` | boolean | `true` | Put each new note on the clipboard. |
-| `jiraApi` | string (sensitive) | `""` | Jira REST API v3 base (`https://api.atlassian.com/ex/jira/<cloud id>/rest/api/3` or `https://<site>.atlassian.net/rest/api/3`), kept in Claude Code's secure storage. Empty leaves Jira out. |
 | `sessionDirs` | string | `~/.claude/projects, ~/.codex/sessions` | Session folders searched for the ticket. Empty leaves sessions out. |
 | `sessionDays` | number | `90` | How many days back a session may have last been active. |
 

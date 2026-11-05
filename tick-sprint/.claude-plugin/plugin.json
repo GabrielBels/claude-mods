@@ -16,13 +16,6 @@
   ],
   "types": "./types/index.d.ts",
   "userConfig": {
-    "jiraSite": {
-      "type": "string",
-      "title": "Jira site",
-      "description": "Your Jira Cloud host (e.g. acme.atlassian.net), read through the claude.ai Atlassian connector",
-      "default": "",
-      "sensitive": true
-    },
     "sprintAnchor": {
       "type": "string",
       "title": "Start of any sprint (YYYY-MM-DD)",

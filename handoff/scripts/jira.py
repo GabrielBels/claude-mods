@@ -1,12 +1,11 @@
 """Prints one Jira ticket as JSON, for /handoff.
 
-Usage: python3 -I jira.py '{"api": "<Jira REST API v3 base>", "key": "PROJ-1"}'
+Usage: python3 -I jira.py '{"key": "PROJ-1"}'
 
-`api` is the REST API v3 base, e.g. https://<site>.atlassian.net/rest/api/3 or the Atlassian API gateway's
-https://api.atlassian.com/ex/jira/<cloud id>/rest/api/3. Credentials come from JIRA_API_EMAIL and JIRA_API_TOKEN, or
-else from ~/.jira-cred ("email:token"); they are only sent to `api`. Rich text (ADF) is flattened to plain text.
+Jira access comes from ~/.config/jira.json ({"apiBase", "email", "token"}, mode 600), with JIRA_API_BASE,
+JIRA_API_EMAIL and JIRA_API_TOKEN over it; the credentials are only sent to apiBase. Rich text (ADF) is flattened to plain text.
 Output: {key, summary, type, status, priority, assignee, parent, description, comments: [{author, created, text}]},
-the latest comments oldest first. Exit 2 without credentials, 3 when Jira does not answer for the key.
+the latest comments oldest first. Exit 2 when Jira is not configured, 3 when Jira does not answer for the key.
 """
 
 import base64
@@ -24,16 +23,20 @@ COMMENTS = 6
 FIELDS = "summary,issuetype,status,priority,assignee,parent,description,comment"
 
 
-def credentials():
-    email, token = os.environ.get("JIRA_API_EMAIL"), os.environ.get("JIRA_API_TOKEN")
-    if email and token:
-        return email, token
+CONFIG_PATH = os.path.expanduser("~/.config/jira.json")
+
+
+def config():
+    """(apiBase, email, token): JIRA_API_BASE, JIRA_API_EMAIL and JIRA_API_TOKEN over ~/.config/jira.json; None when incomplete."""
     try:
-        with open(os.path.expanduser("~/.jira-cred"), encoding="utf-8") as f:
-            email, _, token = f.read().strip().partition(":")
-    except OSError:
-        return None
-    return (email, token) if email and token else None
+        with open(CONFIG_PATH, encoding="utf-8") as f:
+            found = json.load(f)
+    except (OSError, ValueError):
+        found = {}
+    api = os.environ.get("JIRA_API_BASE") or found.get("apiBase") or ""
+    email = os.environ.get("JIRA_API_EMAIL") or found.get("email") or ""
+    token = os.environ.get("JIRA_API_TOKEN") or found.get("token") or ""
+    return (api.rstrip("/"), email, token) if api and email and token else None
 
 
 def get(url, auth):
@@ -86,12 +89,11 @@ def name_of(field):
 
 def main():
     request = json.loads(sys.argv[1])
-    api = request["api"].rstrip("/")
     key = request["key"]
-    found = credentials()
+    found = config()
     if found is None:
         sys.exit(2)
-    email, token = found
+    api, email, token = found
     auth = "Basic " + base64.b64encode(f"{email}:{token}".encode()).decode()
     data = get(f"{api}/issue/{urllib.parse.quote(key)}?fields={FIELDS}", auth)
     fields = (data or {}).get("fields")

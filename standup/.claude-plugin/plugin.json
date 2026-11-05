@@ -69,13 +69,6 @@
       "title": "Standup zone",
       "description": "The IANA time zone the standup time is set in (America/New_York follows its daylight saving). Empty: your computer's zone.",
       "default": ""
-    },
-    "jiraApi": {
-      "type": "string",
-      "title": "Jira API",
-      "description": "Jira REST API v3 base (https://<site>.atlassian.net/rest/api/3) to read each ticket's status and assignee, with JIRA_API_EMAIL and JIRA_API_TOKEN or ~/.jira-cred (email:token). Empty leaves Jira out.",
-      "default": "",
-      "sensitive": true
     }
   }
 }

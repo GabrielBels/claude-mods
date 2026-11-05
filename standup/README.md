@@ -13,7 +13,7 @@
 
 ## What you get
 - **One bullet per ticket** or requirement (`PROJ-2458: …`, `REQ-012: …`), each naming a single ticket.
-- **Real status at the end of each bullet**, from your pull requests (`gh`) and, with `jiraApi` set, from Jira: `To Do`, `Dev Testing, PR #1890 merged`, `Blocked, assigned to Jane Doe`.
+- **Real status at the end of each bullet**, from your pull requests (`gh`) and, with Jira set up, from Jira: `To Do`, `Dev Testing, PR #1890 merged`, `Blocked, assigned to Jane Doe`.
 - **Reviews in one line:** `PRs #1890, #1913, and #142 reviewed`. Your own merged PRs are not counted as reviews.
 - **Blockers** only when the activity shows one.
 - **A pane** with the text exactly as it will paste, **Copy** (`c`), **Regenerate** (`r`) and **Close**.
@@ -29,7 +29,7 @@
 A ticket gets a bullet when a commit, a branch or a session title is about it, or when a session on another ticket names it in your prompts (a ticket you created during a spike). Tickets named in sessions about no ticket (tooling, this standup) get none.
 
 ## Setup
-To read Jira, set `jiraApi` and give the mod an API token through the `JIRA_API_EMAIL` and `JIRA_API_TOKEN` environment variables, or `~/.jira-cred` (`email:token`). Without them the standup still works, with status from GitHub only.
+To read Jira, create `~/.config/jira.json` as the [repository README](../README.md#jira-setup) shows. Without it the standup still works, with status from GitHub only.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
@@ -41,7 +41,6 @@ To read Jira, set `jiraApi` and give the mod an API token through the `JIRA_API_
 | `sessionScope` | string | `""` | Comma-separated folders a session must have worked in to count; empty means the folder that holds the repository. Windows paths (`D:\work`) match their `/mnt/d/work` form. |
 | `standupTime` | string | `""` | When the daily standup starts, `HH:MM` in `standupTimeZone`; the window starts at the latest one held Monday to Friday. Empty: midnight of the last workday. |
 | `standupTimeZone` | string | `""` | IANA zone of `standupTime`. A zone with daylight saving moves the meeting in your own time (`10:45` in `America/New_York` is 12:45 in São Paulo in the northern winter, 11:45 in the summer). Empty: your computer's zone. |
-| `jiraApi` | string (sensitive) | `""` | Jira REST API v3 base (`https://api.atlassian.com/ex/jira/<cloud id>/rest/api/3` or `https://<site>.atlassian.net/rest/api/3`), kept in Claude Code's secure storage. Empty leaves Jira out. |
 
 ## Privacy
 - Sessions are read for your own prompts (each cut to 300 characters, at most 12 per session) and the session title. Tool output and answers are never read.

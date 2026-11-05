@@ -58,9 +58,9 @@ const viewAtom = atom({ plugin: 'standup', key: 'view' } as const, null)
  */
 /**
  * `meeting`: the daily standup, whose latest occurrence starts the window (undefined: midnight of the last workday);
- * `jiraApi`: the Jira REST API v3 base whose tickets' status and assignee are read ('' leaves Jira out).
+ * Jira is read with ~/.config/jira.json (scripts/jira.py); without it, ticket status comes from GitHub alone.
  */
-type Settings = { model: string; style: Style; allBranches: boolean; svnAuthor: string; sessionDirs: string[]; sessionScope: string[]; meeting: Meeting | undefined; jiraApi: string; isHubbed: boolean }
+type Settings = { model: string; style: Style; allBranches: boolean; svnAuthor: string; sessionDirs: string[]; sessionScope: string[]; meeting: Meeting | undefined; isHubbed: boolean }
 type RepoRoot = { root: string; name: string; vcs: 'git' | 'svn' }
 /** One repository's activity; `author` is empty when git knows no user there (every author counts then). */
 type RepoActivity = { name: string; author: string; commits: Commit[]; branch: string; dirtyFiles: number; journal: string; isLogFailed: boolean }
@@ -322,13 +322,14 @@ async function readPrs($: EngineInterface, roots: readonly string[]): Promise<un
   return read.length === 0 && roots.length > 0 ? undefined : read.flat()
 }
 
-/** Status and assignee of each ticket, by scripts/jira.py; undefined when Jira could not be read (no credentials, no python3). */
+/** Status and assignee of each ticket, by scripts/jira.py; {} when Jira is not configured, undefined when it could not be read. */
 async function readJira($: EngineInterface, settings: Settings, roots: readonly string[], keys: readonly string[]): Promise<Record<string, NonNullable<TicketFact['jira']>> | undefined> {
   const [first] = roots
   const name = first === undefined ? '' : ((await git($, ['config', 'user.name'], first))?.trim() ?? '')
   try {
-    const request = JSON.stringify({ api: settings.jiraApi, keys, name })
+    const request = JSON.stringify({ keys, name })
     const run = await $.process.run(['python3', '-I', `${$.plugin.root}/scripts/jira.py`, request], { timeoutMs: FACTS_TIMEOUT_MS })
+    if (run.exitCode === 2) return {}
     const parsed: unknown = run.exitCode === 0 ? JSON.parse(run.stdout) : undefined
     return typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed) ? (parsed as Record<string, NonNullable<TicketFact['jira']>>) : undefined
   } catch {
@@ -336,10 +337,10 @@ async function readJira($: EngineInterface, settings: Settings, roots: readonly 
   }
 }
 
-/** What GitHub (your PRs) and Jira (with `jiraApi` set) say about `keys`, and the sources that could not be read. */
+/** What GitHub (your PRs) and Jira (with ~/.config/jira.json) say about `keys`, and the sources that could not be read. */
 async function readFacts($: EngineInterface, settings: Settings, roots: readonly string[], keys: readonly string[]): Promise<{ facts: TicketFacts; failedFacts: string[] }> {
   if (keys.length === 0) return { facts: {}, failedFacts: [] }
-  const [prs, jira] = await Promise.all([readPrs($, roots), settings.jiraApi !== '' ? readJira($, settings, roots, keys) : Promise.resolve<Record<string, NonNullable<TicketFact['jira']>>>({})])
+  const [prs, jira] = await Promise.all([readPrs($, roots), readJira($, settings, roots, keys)])
   const byPr = prFacts(prs ?? [], keys)
   const facts: TicketFacts = {}
   for (const key of keys) {
@@ -448,7 +449,6 @@ export const register: Register = (on, options) => {
     sessionDirs: list(String(options.sessionDirs ?? '~/.claude/projects, ~/.codex/sessions')),
     sessionScope: list(String(options.sessionScope ?? '')),
     meeting: parseMeeting(String(options.standupTime ?? ''), String(options.standupTimeZone ?? '').trim()),
-    jiraApi: String(options.jiraApi ?? '').trim(),
     isHubbed: false,
   }
 
