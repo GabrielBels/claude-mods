@@ -1,0 +1,51 @@
+{
+  "name": "tick-sprint",
+  "version": "0.1.0",
+  "description": "Divide as horas trabalhadas na sprint entre os epics do Jira pelo tempo em status ativo, para lançar no Tick",
+  "author": {
+    "name": "Gabriel Belisario",
+    "url": "https://github.com/GabrielBels"
+  },
+  "license": "MIT",
+  "keywords": [
+    "claude-mods",
+    "team",
+    "tick",
+    "timesheet",
+    "jira"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "jiraSite": {
+      "type": "string",
+      "title": "Site do Jira",
+      "description": "Host do seu Jira Cloud (ex.: acme.atlassian.net), lido pelo conector Atlassian",
+      "default": "",
+      "sensitive": true
+    },
+    "sprintAnchor": {
+      "type": "string",
+      "title": "Início de uma sprint (AAAA-MM-DD)",
+      "description": "Qualquer data em que uma sprint começou; as demais são calculadas pela duração",
+      "default": "2026-10-28"
+    },
+    "sprintDays": {
+      "type": "number",
+      "title": "Duração da sprint em dias corridos",
+      "default": 14,
+      "description": "Dias corridos entre o início de uma sprint e o da seguinte"
+    },
+    "utcOffsetHours": {
+      "type": "number",
+      "title": "Fuso horário (horas em relação ao UTC)",
+      "default": -3,
+      "description": "Define onde começa e termina cada dia (Brasília = -3)"
+    },
+    "activeStatuses": {
+      "type": "string",
+      "title": "Status ativos (separados por vírgula)",
+      "description": "Tempo da issue nesses status, atribuída a você, conta para o rateio",
+      "default": "In Development, In Progress, Ready (In Progress), Code Review, Dev Testing"
+    }
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "name": "handoff",
+  "version": "1.2.0-local.1",
+  "description": "/handoff writes a short handoff note for a Jira ticket from Jira, your Claude Code and Codex sessions, git and this conversation.",
+  "author": {
+    "name": "Gabriel Belisario",
+    "url": "https://github.com/GabrielBels"
+  },
+  "license": "MIT",
+  "keywords": [
+    "claude-mods",
+    "team",
+    "handoff",
+    "notes"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "dir": {
+      "type": "string",
+      "title": "Folder",
+      "description": "Where notes are saved, relative to the project root.",
+      "default": ".claude/handoff"
+    },
+    "copy": {
+      "type": "boolean",
+      "title": "Copy to clipboard",
+      "description": "Put each new note on the clipboard.",
+      "default": true
+    },
+    "jiraApi": {
+      "type": "string",
+      "title": "Jira API",
+      "description": "Jira REST API v3 base the ticket is read from, with JIRA_API_EMAIL and JIRA_API_TOKEN or ~/.jira-cred (email:token). Empty leaves Jira out.",
+      "default": "",
+      "sensitive": true
+    },
+    "sessionDirs": {
+      "type": "string",
+      "title": "Session folders",
+      "description": "Comma-separated Claude Code projects and Codex sessions folders searched for sessions on the ticket (~ is your home). Empty leaves sessions out.",
+      "default": "~/.claude/projects, ~/.codex/sessions"
+    },
+    "sessionDays": {
+      "type": "number",
+      "title": "Session days",
+      "description": "How many days back a session on the ticket may have last been active.",
+      "default": 90
+    }
+  }
+}

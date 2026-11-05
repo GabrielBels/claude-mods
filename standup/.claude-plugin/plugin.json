@@ -1,0 +1,81 @@
+{
+  "name": "standup",
+  "version": "1.4.0-local.4",
+  "description": "/standup summarises what you did since your last standup, from git history and your Claude Code and Codex sessions, with ticket status from GitHub and Jira, one line per ticket, ready to paste.",
+  "author": {
+    "name": "Gabriel Belisario",
+    "url": "https://github.com/GabrielBels"
+  },
+  "license": "MIT",
+  "keywords": [
+    "claude-mods",
+    "team",
+    "standup",
+    "git",
+    "codex",
+    "jira"
+  ],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "model": {
+      "type": "string",
+      "title": "Model",
+      "description": "The model that writes the standup: an alias (haiku, sonnet, opus) or a full model id.",
+      "default": "haiku"
+    },
+    "style": {
+      "type": "string",
+      "title": "Paste format",
+      "description": "plain works anywhere; markdown uses **bold** headings; slack uses *bold* and • bullets.",
+      "options": [
+        "plain",
+        "markdown",
+        "slack"
+      ],
+      "default": "plain"
+    },
+    "allBranches": {
+      "type": "boolean",
+      "title": "All branches",
+      "description": "Count your commits on every local and remote branch, not only the checked-out one.",
+      "default": true
+    },
+    "svnAuthor": {
+      "type": "string",
+      "title": "SVN user",
+      "description": "Your svn user name. Set it to include svn working copies (their commits by this user); empty leaves svn out.",
+      "default": ""
+    },
+    "sessionDirs": {
+      "type": "string",
+      "title": "Session folders",
+      "description": "Comma-separated Claude Code projects and Codex sessions folders to read your prompts from (~ is your home). Empty leaves sessions out.",
+      "default": "~/.claude/projects, ~/.codex/sessions"
+    },
+    "sessionScope": {
+      "type": "string",
+      "title": "Session scope",
+      "description": "Comma-separated folders a session must have worked in to count (Windows paths match their /mnt/<drive> form). Empty: the folder that holds the repository.",
+      "default": ""
+    },
+    "standupTime": {
+      "type": "string",
+      "title": "Standup time",
+      "description": "When your daily standup starts, as HH:MM in the standup zone. The standup covers what you did since the latest one held on a weekday. Empty: since midnight of your last workday.",
+      "default": ""
+    },
+    "standupTimeZone": {
+      "type": "string",
+      "title": "Standup zone",
+      "description": "The IANA time zone the standup time is set in (America/New_York follows its daylight saving). Empty: your computer's zone.",
+      "default": ""
+    },
+    "jiraApi": {
+      "type": "string",
+      "title": "Jira API",
+      "description": "Jira REST API v3 base (https://<site>.atlassian.net/rest/api/3) to read each ticket's status and assignee, with JIRA_API_EMAIL and JIRA_API_TOKEN or ~/.jira-cred (email:token). Empty leaves Jira out.",
+      "default": "",
+      "sensitive": true
+    }
+  }
+}

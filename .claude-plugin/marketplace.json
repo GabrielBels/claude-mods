@@ -1,0 +1,65 @@
+{
+  "name": "claude-mods",
+  "owner": {
+    "name": "Gabriel Belisario",
+    "url": "https://github.com/GabrielBels"
+  },
+  "metadata": {
+    "description": "Claude Code mods by Gabriel Belisario: standup, handoff and tick-sprint.",
+    "version": "2.0.0"
+  },
+  "plugins": [
+    {
+      "name": "standup",
+      "source": "./standup",
+      "description": "/standup summarises what you did since your last standup, from git history and your Claude Code and Codex sessions, with ticket status from GitHub and Jira, one line per ticket, ready to paste.",
+      "version": "1.4.0-local.4",
+      "author": {
+        "name": "Gabriel Belisario",
+        "url": "https://github.com/GabrielBels"
+      },
+      "category": "team",
+      "keywords": [
+        "claude-mods",
+        "team",
+        "standup",
+        "git"
+      ]
+    },
+    {
+      "name": "handoff",
+      "source": "./handoff",
+      "description": "/handoff writes a short handoff note for a Jira ticket from Jira, your Claude Code and Codex sessions, git and this conversation.",
+      "version": "1.2.0-local.1",
+      "author": {
+        "name": "Gabriel Belisario",
+        "url": "https://github.com/GabrielBels"
+      },
+      "category": "team",
+      "keywords": [
+        "claude-mods",
+        "team",
+        "handoff",
+        "notes"
+      ]
+    },
+    {
+      "name": "tick-sprint",
+      "source": "./tick-sprint",
+      "description": "/tick <hours> splits the hours you worked in a sprint across your Jira epics, weighted by each issue's time in an active status, ready to log in Tick.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Gabriel Belisario",
+        "url": "https://github.com/GabrielBels"
+      },
+      "category": "team",
+      "keywords": [
+        "claude-mods",
+        "team",
+        "tick",
+        "timesheet",
+        "jira"
+      ]
+    }
+  ]
+}
