@@ -49,11 +49,10 @@ Merged, waiting for a qa deploy
 Lists are comma-separated; quote a value with spaces (`exclude-status="Ready to Ship,Done"`).
 
 ## Setup
-The mod reads Jira through the claude.ai Atlassian connector and Octopus through the Octopus Deploy MCP server, using your own sign-in to each, and GitHub through `gh`. In your Claude Code session, `/mcp` must list `claude.ai Atlassian Rovo` and `octopus-deploy`, and `gh auth status` must be signed in to an account that can read the repositories.
+The mod reads Jira's REST API with `~/.config/jira.json`; to create it, follow the [repository README](../README.md#jira-setup). It reads Octopus through the Octopus Deploy MCP server, with your own sign-in, and GitHub through `gh`. In your Claude Code session, `/mcp` must list `octopus-deploy`, and `gh auth status` must be signed in to an account that can read the repositories.
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `jiraSite` | string (sensitive) | `""` | Your Jira Cloud site (`acme.atlassian.net`), kept in Claude Code's secure storage. Required. |
 | `octopusSpace` | string | `""` | The Octopus space name. Required. |
 | `octopusEnvironment` | string | `qa` | The environment whose deployments are checked. |
 | `octopusProjects` | string | `""` | Comma-separated Octopus project names. Their releases must carry GitHub build information. Required. |
@@ -64,7 +63,7 @@ The mod reads Jira through the claude.ai Atlassian connector and Octopus through
 | `excludeStatuses` | string | `Ready to Ship,Done,Cancelled` | Statuses left out by default. |
 
 ## How it works
-- One JQL search through the connector lists the tickets; an answer over Claude Code's MCP output limit is read from the file Claude Code saves it to.
+- One JQL search (`/search/jql`, with `~/.config/jira.json`) lists the tickets. An Octopus answer over Claude Code's MCP output limit is read from the file Claude Code saves it to.
 - For each Octopus project, the latest successful deployment to the environment gives the release, and the release's build information gives the repository, the commit and the branch.
 - `gh api` lists the commits reachable from that commit within `lookbackDays`, and the commits on the branch that the build does not have yet.
 - A ticket matches a commit when its key appears in the commit's first line, so `PROJ-1` never matches `PROJ-10`. Keys only in a commit's body, or in commits older than `lookbackDays`, are not seen.

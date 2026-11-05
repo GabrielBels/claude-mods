@@ -2,7 +2,6 @@ import type { Hook, PluginOptions, Register } from 'claude-code'
 
 const COMMAND = 'whats-in-qa'
 const OCTOPUS = 'octopus-deploy'
-const ATLASSIAN = 'claude.ai Atlassian Rovo'
 
 // Each filter argument and the userConfig field that holds its configured value.
 const FILTERS = {
@@ -30,7 +29,7 @@ const USAGE = [
   '  label=            labels',
   '  jql=              any extra JQL clause, ANDed',
   '',
-  'Octopus space, environment and projects, the Jira site and the commit window are plugin settings.',
+  'Octopus space, environment and projects and the commit window are plugin settings; Jira comes from ~/.config/jira.json.',
 ].join('\n')
 
 type Ticket = { key: string; status: string; assignee: string; summary: string }
@@ -108,28 +107,49 @@ async function gh($: Api, args: string[]): Promise<Commit[]> {
 
 const COMMIT_LINE = '.sha[0:9] + "\\t" + (.commit.message | split("\\n")[0])'
 
-async function loadTickets($: Api, site: string, jql: string): Promise<Ticket[]> {
+const JIRA_SETUP =
+  'Jira is not configured: create ~/.config/jira.json (chmod 600) with {"apiBase", "email", "token"}, as the claude-mods README describes.'
+
+/** apiBase and Basic auth: JIRA_API_BASE, JIRA_API_EMAIL and JIRA_API_TOKEN over ~/.config/jira.json. */
+async function jiraConfig($: Api): Promise<{ base: string; auth: string }> {
+  const home = (await $.env.get('HOME')) ?? (await $.env.get('USERPROFILE')) ?? ''
+  let found: { apiBase?: string; email?: string; token?: string } = {}
+  try {
+    found = JSON.parse(String(await $.fs.read(`${home}/.config/jira.json`)))
+  } catch {
+    found = {}
+  }
+  const base = (await $.env.get('JIRA_API_BASE')) || found.apiBase || ''
+  const email = (await $.env.get('JIRA_API_EMAIL')) || found.email || ''
+  const token = (await $.env.get('JIRA_API_TOKEN')) || found.token || ''
+  if (!base || !email || !token) throw new Error(JIRA_SETUP)
+  return { base: base.replace(/\/+$/, ''), auth: `Basic ${btoa(`${email}:${token}`)}` }
+}
+
+async function loadTickets($: Api, jql: string): Promise<Ticket[]> {
+  const jira = await jiraConfig($)
   const tickets: Ticket[] = []
   let nextPageToken: string | undefined
-  do {
-    const page = await callJson($, ATLASSIAN, 'searchJiraIssuesUsingJql', {
-      cloudId: site,
-      jql,
-      fields: ['summary', 'status', 'assignee'],
-      maxResults: 100,
-      responseContentFormat: 'markdown',
-      ...(nextPageToken ? { nextPageToken } : {}),
+  for (let page = 0; page < 20; page++) {
+    const response = await $.http.fetch(`${jira.base}/search/jql`, {
+      method: 'POST',
+      headers: { Authorization: jira.auth, Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jql, fields: ['summary', 'status', 'assignee'], maxResults: 100, ...(nextPageToken ? { nextPageToken } : {}) }),
     })
-    for (const node of page.issues?.nodes ?? []) {
+    if (response.status === 401) throw new Error('Jira answered 401: the token in ~/.config/jira.json is expired or lacks read:jira-work.')
+    if (!response.ok) throw new Error(`Jira search failed with ${response.status}: ${response.text.slice(0, 300)}`)
+    const data = JSON.parse(response.text)
+    for (const issue of data.issues ?? []) {
       tickets.push({
-        key: node.key,
-        status: node.fields?.status?.name ?? '?',
-        assignee: node.fields?.assignee?.displayName ?? '—',
-        summary: node.fields?.summary ?? '',
+        key: issue.key,
+        status: issue.fields?.status?.name ?? '?',
+        assignee: issue.fields?.assignee?.displayName ?? '—',
+        summary: issue.fields?.summary ?? '',
       })
     }
-    nextPageToken = page.issues?.pageInfo?.hasNextPage ? page.issues.pageInfo.endCursor : undefined
-  } while (nextPageToken)
+    if (data.isLast !== false || !data.nextPageToken) break
+    nextPageToken = data.nextPageToken
+  }
 
   return tickets
 }
@@ -266,7 +286,6 @@ export const register: Register = (on, options) => {
     const environment = text(options, 'octopusEnvironment')
     const octopusProjects = list(text(options, 'octopusProjects'))
     const missing = [
-      ['jiraSite', 'Jira site'],
       ['octopusSpace', 'Octopus space'],
       ['octopusEnvironment', 'Octopus environment'],
       ['octopusProjects', 'Octopus projects'],
@@ -280,7 +299,7 @@ export const register: Register = (on, options) => {
     try {
       $.ui.status('whats-in-qa: reading Jira, Octopus and GitHub…')
       const [tickets, octopus] = await Promise.all([
-        loadTickets($, text(options, 'jiraSite'), filter.jql),
+        loadTickets($, filter.jql),
         resolveOctopus($, text(options, 'octopusSpace'), environment, octopusProjects),
       ])
       const builds = await Promise.all(

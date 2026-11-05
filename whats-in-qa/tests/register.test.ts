@@ -1,8 +1,9 @@
 import { expect, test } from 'claude-code/testing'
+import type { TestBody } from 'claude-code/testing'
 
-const text = (value: unknown) => ({ value: { content: [{ type: 'text', text: value }], isError: false } })
+const text = (value: string) => ({ value: { content: [{ type: 'text', text: value }], isError: false } })
 
-type On = Parameters<Parameters<typeof test>[1]>[1]
+type On = Parameters<TestBody>[1]
 
 const json = (value: unknown) => ({ value: { content: [{ type: 'text', text: JSON.stringify(value) }], isError: false } })
 const ticket = (key: string, status: string) => ({
@@ -16,40 +17,46 @@ const TEAM = {
     projects: 'PROJ,CORE',
     components: 'Api,Web Team',
     excludeStatuses: 'Ready to Ship,Done,Cancelled',
-    jiraSite: 'acme.atlassian.net',
     octopusSpace: 'Acme',
     octopusEnvironment: 'qa',
     octopusProjects: 'Web-App,Api',
   },
 }
 
-function stubEngine(on: On, seen: { jql: string[]; oversized?: boolean }, ghFails = false) {
+const CONFIG = JSON.stringify({ apiBase: 'https://jira.example/rest/api/3', email: 'alice@acme.test', token: 't0ken' })
+const SPACES = { Page: { Items: [{ Id: 'Spaces-1', Name: 'Acme' }] } }
+
+type Seen = { jql: string[]; auth?: string[]; oversized?: boolean; noConfig?: boolean }
+
+function stubEngine(on: On, seen: Seen, ghFails = false) {
   on('command.register', () => ({ value: { command: 'whats-in-qa' } }))
   on('session.start', (_, e) => ({ cwd: e.cwd }))
   on('ui.status', () => ({ value: undefined }))
+  // Jira: the REST API, configured by ~/.config/jira.json.
+  on('env.get', (_, e) => ({ value: e.name === 'HOME' ? '/home/alice' : undefined }))
+  on('fs.read', (_, e) => {
+    if (e.path === '/home/alice/.config/jira.json' && !seen.noConfig) return { value: CONFIG }
+    if (e.path === '/tmp/octopus-spaces.txt') return { value: JSON.stringify(SPACES) }
+    throw new Error('ENOENT')
+  })
+  on('http.fetch', (_, e) => {
+    seen.jql.push(String(JSON.parse(e.init?.body ?? '{}').jql))
+    ;(seen.auth ??= []).push(String(e.init?.headers?.Authorization))
+    const issues = [
+      ticket('PROJ-1', 'Dev Testing'),
+      ticket('PROJ-2', 'Ready for QA'),
+      ticket('PROJ-3', 'Dev Testing'),
+      ticket('PROJ-4', 'Blocked'),
+      ticket('PROJ-5', 'Ready for QA'),
+      ticket('PROJ-10', 'Dev Testing'),
+    ]
+    return { value: { status: 200, ok: true, headers: {}, text: JSON.stringify({ issues, isLast: true }) } }
+  })
   on('mcp.call', (_, e) => {
     switch (e.tool) {
-      case 'searchJiraIssuesUsingJql':
-        if (seen.oversized) {
-          seen.jql.push(String(e.args.jql))
-          return text('Error: result exceeds maximum allowed tokens. Output has been saved to /tmp/jira-page.txt.\nFormat: JSON')
-        }
-        seen.jql.push(String(e.args.jql))
-        return json({
-          issues: {
-            nodes: [
-              ticket('PROJ-1', 'Dev Testing'),
-              ticket('PROJ-2', 'Ready for QA'),
-              ticket('PROJ-3', 'Dev Testing'),
-              ticket('PROJ-4', 'Blocked'),
-              ticket('PROJ-5', 'Ready for QA'),
-              ticket('PROJ-10', 'Dev Testing'),
-            ],
-            pageInfo: { hasNextPage: false },
-          },
-        })
       case 'find_spaces':
-        return json({ Page: { Items: [{ Id: 'Spaces-1', Name: 'Acme' }] } })
+        if (seen.oversized) return text('Error: result exceeds maximum allowed tokens. Output has been saved to /tmp/octopus-spaces.txt.\nFormat: JSON')
+        return json(SPACES)
       case 'find_environments':
         return json({ Page: { Items: [{ Id: 'Environments-3', Name: 'qa' }] } })
       case 'find_projects':
@@ -95,9 +102,9 @@ function stubEngine(on: On, seen: { jql: string[]; oversized?: boolean }, ghFail
   })
 }
 
-async function run($: Parameters<Parameters<typeof test>[1]>[0], args = '') {
+async function run($: Parameters<TestBody>[0], args = '') {
   await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
-  return (await $.command.run({ command: 'whats-in-qa', args })).text ?? ''
+  return (await $.command.run({ command: 'whats-in-qa', args, origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 160 } })).text ?? ''
 }
 
 test('classifies the configured tickets by what the QA builds contain', TEAM, async ($, on) => {
@@ -163,17 +170,31 @@ test('reports a failing source instead of a partial table', TEAM, async ($, on) 
   expect(text).toContain('HTTP 401')
 })
 
-test('an oversized Jira answer is read from the file the engine saved it to', TEAM, async ($, on) => {
-  const seen = { jql: [] as string[], oversized: true }
-  stubEngine(on, seen)
-  on('fs.read', (_, e) => {
-    expect(e.path).toBe('/tmp/jira-page.txt')
-    return { value: JSON.stringify({ issues: { nodes: [ticket('PROJ-2', 'Ready for QA')], pageInfo: { hasNextPage: false } } }) }
-  })
+test('an oversized Octopus answer is read from the file the engine saved it to', TEAM, async ($, on) => {
+  stubEngine(on, { jql: [], oversized: true })
 
   const report = await run($)
 
   expect(report).toContain('| PROJ-2 | Ready for QA | Dev | Api |')
+})
+
+test('Jira is read with ~/.config/jira.json', TEAM, async ($, on) => {
+  const seen: Seen = { jql: [] }
+  stubEngine(on, seen)
+
+  await run($)
+
+  expect(seen.auth).toEqual([`Basic ${btoa('alice@acme.test:t0ken')}`])
+})
+
+test('without ~/.config/jira.json it says how to configure Jira', TEAM, async ($, on) => {
+  const seen: Seen = { jql: [], noConfig: true }
+  stubEngine(on, seen)
+
+  const report = await run($)
+
+  expect(report).toContain('Jira is not configured: create ~/.config/jira.json')
+  expect(seen.jql).toEqual([])
 })
 
 test('without the location settings it says which ones to set', { options: { projects: 'PROJ' } }, async ($, on) => {
@@ -181,5 +202,5 @@ test('without the location settings it says which ones to set', { options: { pro
 
   const report = await run($)
 
-  expect(report).toContain('"Jira site", "Octopus space", "Octopus projects"')
+  expect(report).toContain('"Octopus space", "Octopus projects"')
 })

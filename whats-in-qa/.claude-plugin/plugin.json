@@ -63,13 +63,6 @@
       "description": "Any extra JQL clause, ANDed with the filters above.",
       "default": ""
     },
-    "jiraSite": {
-      "type": "string",
-      "title": "Jira site",
-      "description": "Your Jira Cloud host (e.g. acme.atlassian.net), read through the claude.ai Atlassian connector",
-      "default": "",
-      "sensitive": true
-    },
     "octopusSpace": {
       "type": "string",
       "title": "Octopus space",

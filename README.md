@@ -30,7 +30,7 @@ To add the marketplace and install a mod, type this at the prompt of a Claude Co
 
 From a shell, use `claude plugin install <mod> --marketplace GabrielBels/claude-mods`. In the desktop app, where `/plugin` does not run, click **+** next to the prompt box, then **Plugins**, **Add marketplace** with `GabrielBels/claude-mods`, then **Add plugin**.
 
-The install shows a settings screen for each mod. Every option has a default except, for whats-in-qa, the Jira site and the Octopus space and projects. To change a setting later, open `/plugin` and configure the mod.
+The install shows a settings screen for each mod. Every option has a default except, for whats-in-qa, the Octopus space and projects. To change a setting later, open `/plugin` and configure the mod.
 
 ## What each mod needs
 | | standup | handoff | tick-sprint | whats-in-qa |
@@ -38,12 +38,12 @@ The install shows a settings screen for each mod. Every option has a default exc
 | git | yes | yes | — | — |
 | Python 3 | yes | yes | — | — |
 | GitHub CLI (`gh`, signed in) | for PR status | for the ticket's PRs | — | required |
-| Jira | optional: `~/.config/jira.json` | optional: `~/.config/jira.json` | required: `~/.config/jira.json` | required: `jiraSite` + the claude.ai Atlassian connector |
+| Jira | optional: `~/.config/jira.json` | optional: `~/.config/jira.json` | required: `~/.config/jira.json` | required: `~/.config/jira.json` |
 | Octopus Deploy MCP server | — | — | — | required |
 | svn | optional, for svn working copies | optional, for svn working copies | — | — |
 
 ## Jira setup
-standup, handoff and tick-sprint read Jira from one file, `~/.config/jira.json`, that you create once:
+All four mods read Jira from one file, `~/.config/jira.json`, that you create once:
 
 ```json
 {"apiBase": "https://api.atlassian.com/ex/jira/<cloud id>/rest/api/3", "email": "<your Atlassian email>", "token": "<API token>"}
@@ -56,11 +56,11 @@ standup, handoff and tick-sprint read Jira from one file, `~/.config/jira.json`,
    read -s -p "Token: " T && mkdir -p ~/.config && printf '{"apiBase": "%s", "email": "%s", "token": "%s"}\n' 'https://api.atlassian.com/ex/jira/<cloud id>/rest/api/3' '<email>' "$T" > ~/.config/jira.json && chmod 600 ~/.config/jira.json && unset T
    ```
 
-`JIRA_API_BASE`, `JIRA_API_EMAIL` and `JIRA_API_TOKEN` override the file's values. Without the file, standup works from GitHub alone, handoff writes the note and says Jira was not read, and tick-sprint asks you to create it.
+`JIRA_API_BASE`, `JIRA_API_EMAIL` and `JIRA_API_TOKEN` override the file's values. Without the file, standup works from GitHub alone, handoff writes the note and says Jira was not read, and tick-sprint and whats-in-qa ask you to create it.
 
 ## Your secrets stay on your machine
-- **Jira:** standup, handoff and tick-sprint read your Jira site and token from `~/.config/jira.json`, readable only by you (`chmod 600`); the token is only sent to your Jira's API. Nothing in this repository holds anyone's values.
-- **whats-in-qa:** its `jiraSite` is a *sensitive* plugin option that Claude Code keeps in its secure storage. It reads Jira through the claude.ai Atlassian connector you already signed in to, Octopus through your Octopus Deploy MCP server and GitHub through your `gh` sign-in.
+- **Jira:** every mod reads your Jira site and token from `~/.config/jira.json`, readable only by you (`chmod 600`); the token is only sent to your Jira's API. Nothing in this repository holds anyone's values.
+- **whats-in-qa:** also reads Octopus through your Octopus Deploy MCP server and GitHub through your `gh` sign-in.
 - **Your sessions:** the mods read your own prompts and session titles, never tool output. The model that writes the text gets only that activity, not your conversation history.
 
 ## Develop
