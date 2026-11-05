@@ -29,7 +29,7 @@ function show($: EngineInterface, next: TickView) {
 }
 
 async function run($: EngineInterface, args: string, s: Settings & { site: string }) {
-  if (s.site === '') throw new Error('Configure o site do Jira (jiraSite) do tick-sprint em /plugin.')
+  if (s.site === '') throw new Error('Set your Jira site (jiraSite) for tick-sprint in /plugin.')
   const parsed = parseArgs(args)
   if ('error' in parsed) throw new Error(parsed.error)
   const now = await $.clock.now()
@@ -48,14 +48,14 @@ export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'tick',
-      description: 'Divide as horas da sprint entre os epics do Jira para lançar no Tick',
-      argumentHint: '<horas> [-1 | AAAA-MM-DD | DD/MM]',
+      description: 'Split your sprint hours across your Jira epics, ready to log in Tick',
+      argumentHint: '<hours> [-1 | YYYY-MM-DD | DD/MM]',
     })
     return next(e)
   })
 
   on('command.run', { command: 'tick' }, async ($, e) => {
-    await show($, { kind: 'loading', label: 'Calculando a sprint…' })
+    await show($, { kind: 'loading', label: 'Working out the sprint…' })
     await $.ui.open({ id: PANE, title: TITLE })
     try {
       const report = await run($, e.args, settings)
@@ -65,7 +65,7 @@ export const register: Register = (on, options) => {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
       await show($, { kind: 'error', message })
-      return { text: `/tick falhou: ${message}` }
+      return { text: `/tick failed: ${message}` }
     }
   })
 
@@ -96,7 +96,7 @@ export const register: Register = (on, options) => {
         <Text> </Text>
         <Button
           key="copy"
-          label="Copiar (TSV)"
+          label="Copy (TSV)"
           onPress={() => $.ui.copy({ text: formatTsv(r), surface: e.surface })}
         />
       </Box>

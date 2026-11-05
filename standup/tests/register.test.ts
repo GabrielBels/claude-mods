@@ -353,7 +353,7 @@ test('each ticket gets one line saying where it stands: merged, PR opened, in pr
     { date: '2026-10-06', hash: 'd', subject: 'chore: bump tooling' },
   ]
   const sessions = [
-    session('PROJ-2458 recycle bin: pager fora da tela'),
+    session('PROJ-2458 recycle bin: pager off screen'),
     session('Global Search: page size', ['abre o PR'], 'PROJ-2446-page-size'),
     session('PROJ-2425 order.CreatedBy references spike'),
     session('PR review #142 PROJ-9'),

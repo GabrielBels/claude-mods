@@ -53,14 +53,14 @@ const isWeekday = (day: number): boolean => {
   return w >= 1 && w <= 5
 }
 
-export const USAGE = 'Use /tick <horas> [-1 | +1 | AAAA-MM-DD | DD/MM], por exemplo /tick 72 ou /tick 75,5 -1.'
+export const USAGE = 'Use /tick <hours> [-1 | +1 | YYYY-MM-DD | DD/MM], e.g. /tick 72 or /tick 75.5 -1.'
 
 /** `<horas> [sprint]`: the hours worked in the sprint, then which sprint. */
 export const parseArgs = (args: string): { hours: number; sprint: string } | { error: string } => {
   const [first = '', ...rest] = args.trim().split(/\s+/)
   const m = /^(\d+(?:[.,]\d+)?)h?$/i.exec(first)
   const hours = m ? Number((m[1] ?? '').replace(',', '.')) : NaN
-  if (!(hours > 0)) return { error: `Informe as horas trabalhadas na sprint. ${USAGE}` }
+  if (!(hours > 0)) return { error: `Give the hours you worked in the sprint. ${USAGE}` }
   return { hours, sprint: rest.join(' ') }
 }
 
@@ -70,8 +70,8 @@ export const parseArgs = (args: string): { hours: number; sprint: string } | { e
  */
 export const resolveSprint = (arg: string, nowMs: number, s: Settings): Sprint | { error: string } => {
   const anchor = parseDay(s.anchor)
-  if (anchor === null) return { error: `Data-âncora inválida: "${s.anchor}" (use AAAA-MM-DD).` }
-  if (!(s.sprintDays > 0)) return { error: `Duração de sprint inválida: ${s.sprintDays}.` }
+  if (anchor === null) return { error: `Invalid sprint anchor: "${s.anchor}" (use YYYY-MM-DD).` }
+  if (!(s.sprintDays > 0)) return { error: `Invalid sprint length: ${s.sprintDays}.` }
 
   const today = dayOf(nowMs, s.utcOffsetHours)
   const text = arg.trim()
@@ -84,7 +84,7 @@ export const resolveSprint = (arg: string, nowMs: number, s: Settings): Sprint |
     const br = /^(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?$/.exec(text)
     const [, dd = '', mm = '', yyyy = String(new Date(today * DAY).getUTCFullYear())] = br ?? []
     const day = br ? parseDay(`${yyyy}-${mm.padStart(2, '0')}-${dd.padStart(2, '0')}`) : parseDay(text)
-    if (day === null) return { error: `Não entendi a sprint "${text}". ${USAGE}` }
+    if (day === null) return { error: `Unknown sprint "${text}". ${USAGE}` }
     target = day
   }
 
@@ -193,10 +193,10 @@ export const buildReport = (
     .map(([epic, hours]) => ({ epic, name: names.get(epic) ?? epic, hours }))
     .sort(byHoursDesc)
 
-  if (totals.length === 0) notes.push('Nenhuma issue sua ficou em status ativo neste período; nada a ratear.')
-  if (sprint.end > dayOf(nowMs, off) + 1) notes.push('Sprint em andamento: a proporção usa o tempo até agora.')
-  if (cancelled.length > 0) notes.push(`Ignoradas por estarem canceladas: ${cancelled.join(', ')}.`)
-  if (partial.length > 0) notes.push(`Changelog incompleto (tempo pode estar subestimado): ${partial.join(', ')}.`)
+  if (totals.length === 0) notes.push('None of your issues was in an active status in this sprint; nothing to split.')
+  if (sprint.end > dayOf(nowMs, off) + 1) notes.push('Sprint in progress: the split uses the time so far.')
+  if (cancelled.length > 0) notes.push(`Left out as cancelled: ${cancelled.join(', ')}.`)
+  if (partial.length > 0) notes.push(`Changelog cut short (time may be too low): ${partial.join(', ')}.`)
 
   return {
     sprintStart: formatDay(sprint.start),
@@ -220,9 +220,9 @@ export const epicLabel = (e: EpicHours): string => (e.epic === '' ? e.name : `${
 export const formatText = (r: TickReport): string => {
   const lines = [`Tick · sprint ${brDate(r.sprintStart)}–${brDate(r.sprintEnd)} · ${fmtHours(r.totalHours)}h`, '']
   if (r.totals.length > 0) {
-    lines.push('Por epic:')
+    lines.push('By epic:')
     for (const e of r.totals) lines.push(`  ${fmtHours(e.hours).padStart(6)}h  ${epicLabel(e)}`)
-    lines.push('', 'Issues (horas em status ativo, base da proporção):')
+    lines.push('', 'Issues (hours in an active status, the base of the split):')
     for (const i of r.issues) lines.push(`  ${fmtHours(i.activeHours).padStart(6)}h  ${i.key} ${i.summary}`)
   }
   if (r.notes.length > 0) lines.push('', ...r.notes.map(n => `• ${n}`))

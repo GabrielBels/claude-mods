@@ -9,7 +9,7 @@ const SETTINGS: Settings = {
   utcOffsetHours: -3,
   activeStatuses: ['In Development', 'Code Review'],
 }
-// Monday 2026-11-02, 20:00 in Brasília.
+// Monday 2026-11-02, 20:00 in São Paulo (UTC-3).
 const NOW = Date.parse('2026-11-02T20:00:00-03:00')
 const at = (iso: string) => Date.parse(`${iso}-03:00`)
 const status = (created: string, from: string, to: string) => ({
@@ -39,7 +39,7 @@ const ISSUES: Issue[] = [
     histories: [status('2026-10-28T00:00:00', 'Open', 'In Development')],
   },
   {
-    key: 'D-1', summary: 'Handed over D', status: 'In Development', assigneeId: 'other', epic: '', epicName: '(sem epic)',
+    key: 'D-1', summary: 'Handed over D', status: 'In Development', assigneeId: 'other', epic: '', epicName: '(no epic)',
     isChangelogPartial: false,
     histories: [
       status('2026-10-27T00:00:00', 'Open', 'In Development'),
@@ -66,7 +66,7 @@ test('a sprint is found from the anchor, relative or by date', async () => {
   expect(days(resolveSprint('+1', NOW, SETTINGS))).toBe('2026-11-11..2026-11-25')
   expect(days(resolveSprint('15/10', NOW, SETTINGS))).toBe('2026-10-14..2026-10-28')
   expect(days(resolveSprint('2026-11-11', NOW, SETTINGS))).toBe('2026-11-11..2026-11-25')
-  expect(days(resolveSprint('ontem', NOW, SETTINGS))).toMatch(/Não entendi/)
+  expect(days(resolveSprint('ontem', NOW, SETTINGS))).toMatch(/Unknown sprint/)
 })
 
 test('only active time while assigned to me counts, weekends left out', async () => {
@@ -109,7 +109,7 @@ test('the hours given are split by each epic\'s active time', async () => {
   expect(r.totalHours).toBe(32)
   expect(r.totals.map(t => `${t.epic || '-'}:${t.hours}`)).toEqual(['E-1:15.25', '-:10.75', 'E-2:6'])
   expect(r.notes.some(n => n.includes('C-1'))).toBe(true)
-  expect(r.notes.some(n => n.includes('Sprint em andamento'))).toBe(true)
+  expect(r.notes.some(n => n.includes('Sprint in progress'))).toBe(true)
 })
 
 // The connector's answers, as the Atlassian MCP returns them: JSON in a text block.
@@ -190,7 +190,7 @@ test('/tick 32 reads Jira, oversized answers from their saved file, and fills th
     'assignee was currentUser() DURING ("2026/10/28", "2026/11/11") AND (status changed DURING ("2026/10/28", "2026/11/11") OR statusCategory = "In Progress") ORDER BY key',
   ])
   expect(out.text).toContain('15.25h  Geo (E-1)')
-  expect(out.text).toContain('10.75h  (sem epic)')
+  expect(out.text).toContain('10.75h  (no epic)')
   expect(out.text).toContain('6h  Support (E-2)')
 
   for (const surface of ['terminal', 'desktop'] as const) {
@@ -219,6 +219,6 @@ test('/tick without hours says how to call it and reads nothing', { options: { j
     presentation: { isFullscreen: true, columns: 160 },
   })
 
-  expect(out.text).toContain('Informe as horas trabalhadas')
+  expect(out.text).toContain('Give the hours you worked')
   expect(calls).toBe(0)
 })

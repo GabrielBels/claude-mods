@@ -10,7 +10,7 @@ type Json = any
 async function callJson($: EngineInterface, tool: string, args: Record<string, unknown>): Promise<Json> {
   const result = await $.mcp.call(SERVER, tool, args)
   const text = result.content.map(c => c.text ?? '').join('')
-  if (result.isError) throw new Error(`${tool}: ${text.slice(0, 300) || 'erro sem mensagem'}`)
+  if (result.isError) throw new Error(`${tool}: ${text.slice(0, 300) || 'error without a message'}`)
   // An answer over the engine's MCP size limits comes back as a note naming the file that holds it,
   // in one of two wordings ("Output has been saved to <path>." or "Full output saved to: <path>").
   const saved = /(?:Output has been saved to|Full output saved to:)\s*(\S+?)\.?(?:\s|$)/.exec(text)?.[1]
@@ -18,7 +18,7 @@ async function callJson($: EngineInterface, tool: string, args: Record<string, u
     return JSON.parse(saved ? await $.fs.read(saved) : text)
   } catch {
     if (result.structuredContent !== undefined) return result.structuredContent
-    throw new Error(`${tool}: resposta inesperada do conector (${text.slice(0, 120)})`)
+    throw new Error(`${tool}: unexpected answer from the connector (${text.slice(0, 120)})`)
   }
 }
 
@@ -90,7 +90,7 @@ const mapLimit = async <T, R>(items: T[], limit: number, fn: (item: T, i: number
 
 const jqlDate = (iso: string) => iso.replaceAll('-', '/')
 
-const NO_EPIC = { epic: '', epicName: '(sem epic)' }
+const NO_EPIC = { epic: '', epicName: '(no epic)' }
 
 /**
  * Every issue assigned to the current user at some point in [start, end],
@@ -104,7 +104,7 @@ export async function loadIssues(
   fromMs: number,
   progress: (label: string) => Promise<unknown>,
 ): Promise<{ issues: Issue[]; me: string }> {
-  await progress('Buscando suas issues no Jira…')
+  await progress('Finding your issues in Jira…')
   // Issues untouched during the sprint and not in progress now spent no active time in it.
   const during = `DURING ("${jqlDate(start)}", "${jqlDate(end)}")`
   const jql = `assignee was currentUser() ${during} AND (status changed ${during} OR statusCategory = "In Progress") ORDER BY key`
@@ -114,7 +114,7 @@ export async function loadIssues(
     const info = await callJson($, 'atlassianUserInfo', {})
     me = info?.account_id ?? info?.accountId ?? null
   }
-  if (!me) throw new Error('Não consegui descobrir seu accountId no Jira.')
+  if (!me) throw new Error('Could not find your Jira account id.')
 
   // A subtask's parent is a story: its epic is one level up.
   const epicOf = new Map<string, { epic: string; epicName: string }>()
@@ -135,7 +135,7 @@ export async function loadIssues(
   const issues = await mapLimit(nodes, 4, async (n): Promise<Issue> => {
     const log = await changelog($, site, n.key, fromMs)
     done += 1
-    await progress(`Lendo changelog ${done}/${nodes.length}…`)
+    await progress(`Reading changelog ${done}/${nodes.length}…`)
     const p = n.fields?.parent
     const group = !p?.key
       ? NO_EPIC

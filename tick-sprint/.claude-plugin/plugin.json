@@ -1,7 +1,7 @@
 {
   "name": "tick-sprint",
   "version": "0.1.0",
-  "description": "Divide as horas trabalhadas na sprint entre os epics do Jira pelo tempo em status ativo, para lançar no Tick",
+  "description": "Splits the hours you worked in a sprint across your Jira epics, weighted by each issue's time in an active status, ready to log in Tick",
   "author": {
     "name": "Gabriel Belisario",
     "url": "https://github.com/GabrielBels"
@@ -18,33 +18,33 @@
   "userConfig": {
     "jiraSite": {
       "type": "string",
-      "title": "Site do Jira",
-      "description": "Host do seu Jira Cloud (ex.: acme.atlassian.net), lido pelo conector Atlassian",
+      "title": "Jira site",
+      "description": "Your Jira Cloud host (e.g. acme.atlassian.net), read through the claude.ai Atlassian connector",
       "default": "",
       "sensitive": true
     },
     "sprintAnchor": {
       "type": "string",
-      "title": "Início de uma sprint (AAAA-MM-DD)",
-      "description": "Qualquer data em que uma sprint começou; as demais são calculadas pela duração",
+      "title": "Start of any sprint (YYYY-MM-DD)",
+      "description": "Any date a sprint started on; the other sprints follow from the sprint length",
       "default": "2026-10-28"
     },
     "sprintDays": {
       "type": "number",
-      "title": "Duração da sprint em dias corridos",
+      "title": "Sprint length in calendar days",
       "default": 14,
-      "description": "Dias corridos entre o início de uma sprint e o da seguinte"
+      "description": "Calendar days from one sprint's start to the next one's"
     },
     "utcOffsetHours": {
       "type": "number",
-      "title": "Fuso horário (horas em relação ao UTC)",
+      "title": "Time zone (hours from UTC)",
       "default": -3,
-      "description": "Define onde começa e termina cada dia (Brasília = -3)"
+      "description": "Where each day starts and ends (São Paulo is -3)"
     },
     "activeStatuses": {
       "type": "string",
-      "title": "Status ativos (separados por vírgula)",
-      "description": "Tempo da issue nesses status, atribuída a você, conta para o rateio",
+      "title": "Active statuses (comma-separated)",
+      "description": "Time an issue assigned to you spends in these statuses counts toward the split",
       "default": "In Development, In Progress, Ready (In Progress), Code Review, Dev Testing"
     }
   }
