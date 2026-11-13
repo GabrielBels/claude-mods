@@ -304,10 +304,13 @@ export const oneTicketPerBullet = (items: readonly string[], worked: ReadonlySet
 
 const REVIEW_BULLET = /review|revis/i
 
-/** The update with every bullet about PR reviews replaced by `prLine`, once, at the end; unchanged without a line. */
+/**
+ * The update with every bullet about PR reviews replaced by `prLine`, once, at the end; unchanged without a line. A ticket
+ * bullet (`KEY: …`) is your own work and stays, even when it ends with a status such as `(Code Review, PR #1961 open)`.
+ */
 export const oneReviewLine = (items: readonly string[], prLine: string | undefined): string[] =>
   prLine === undefined ? [...items]
-    : [...items.filter(item => !(REVIEW_BULLET.test(item) && /#\d+|\bPRs?\b|pull request/i.test(item))), prLine]
+    : [...items.filter(item => /^[A-Z][A-Z0-9]+-\d+\s*:/.test(item) || !(REVIEW_BULLET.test(item) && /#\d+|\bPRs?\b|pull request/i.test(item))), prLine]
 
 /**
  * The model's bullets held to the facts: a bullet whose ticket is not in `worked` (one only named inside prompts) is

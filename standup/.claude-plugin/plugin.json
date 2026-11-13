@@ -1,6 +1,6 @@
 {
   "name": "standup",
-  "version": "1.4.0-local.4",
+  "version": "1.4.0-local.5",
   "description": "/standup summarises what you did since your last standup, from git history and your Claude Code and Codex sessions, with ticket status from GitHub and Jira, one line per ticket, ready to paste.",
   "author": {
     "name": "Gabriel Belisario",

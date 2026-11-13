@@ -527,3 +527,13 @@ test('the update generated on 4 Nov is held to one ticket per bullet and one rev
   ])
   expect(oneTicketPerBullet(['PROJ-1: Fixed it while reading PROJ-9'], new Set(['PROJ-1']))).toEqual(['PROJ-1: Fixed it while reading a ticket'])
 })
+
+test('a ticket in Jira "Code Review" with an open PR keeps its bullet next to the reviews line', () => {
+  const worked = new Set(['PROJ-2519'])
+  const facts = { 'PROJ-2519': { jira: { status: 'Code Review', isDone: false, assignee: 'Dev', isMine: true }, pr: { number: 1961, state: 'OPEN' as const, mergedAt: '' } } }
+  const reply = ['PROJ-2519: Translated the overdue notification and sent it for review (PR opened)', 'Reviewed PR #74', 'PR #74 reviewed']
+  expect(oneReviewLine(settleTickets(oneTicketPerBullet(reply, worked), facts, worked), 'PR #74 reviewed')).toEqual([
+    'PROJ-2519: Translated the overdue notification and sent it for review (Code Review, PR #1961 open)',
+    'PR #74 reviewed',
+  ])
+})
