@@ -13,6 +13,7 @@
 
 ## What you get
 - **One bullet per ticket** or requirement (`PROJ-2458: …`, `REQ-012: …`), each naming a single ticket.
+- **Oldest first:** ticket bullets follow the day their work began, from the earliest commit or session that names the ticket.
 - **Real status at the end of each bullet**, from your pull requests (`gh`) and, with Jira set up, from Jira: `To Do`, `Dev Testing, PR #1890 merged`, `Blocked, assigned to Jane Doe`.
 - **Reviews in one line:** `PRs #1890, #1913, and #142 reviewed`. Your own merged PRs are not counted as reviews.
 - **Blockers** only when the activity shows one.

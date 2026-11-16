@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { StandupView } from '../types'
-import { defaultDays, factLine, fallbackSections, formatAiSessions, formatSections, lastStandup, momentLabel, neighboursOf, oneLinePerTicket, parseAiSessions, parseLog, parseMeeting, parseSections, oneReviewLine, oneTicketPerBullet, parseSvnLog, prFacts, REVIEW_TITLE, reviewedLine, reviewedPrs, settleTickets, sinceLabel, ticketOf, ticketsOf, unseenCommits, workedTickets } from './standup'
+import { defaultDays, factLine, fallbackSections, formatAiSessions, formatSections, lastStandup, momentLabel, neighboursOf, oldestFirst, oneLinePerTicket, parseAiSessions, parseLog, parseMeeting, parseSections, oneReviewLine, oneTicketPerBullet, parseSvnLog, prFacts, REVIEW_TITLE, reviewedLine, reviewedPrs, settleTickets, sinceLabel, ticketOf, ticketsOf, unseenCommits, workedTickets } from './standup'
 import type { AiSession, Commit, Meeting, Neighbours, Style, TicketFact, TicketFacts } from './standup'
 import { paneFailure } from './shared/render-safe'
 
@@ -44,6 +44,7 @@ const SYSTEM = [
   'A commit subject ending in "(#1904)" is a merged pull request; a session that asked to open a PR means PR opened.',
   'Take ticket keys only from the activity; never invent one or any work.',
   'Work tied to no ticket gets a plain bullet with no prefix and no status at the end.',
+  'List the bullets in the order the work happened, oldest first.',
   'Leave pull request reviews out entirely: the reviews line is added for you.',
   'Use plain English a teammate understands (no hashes, no conventional-commit prefixes), even when the prompts are in another language.',
   'Under BLOCKERS list only what the activity shows blocking the engineer; when nothing does, answer None.',
@@ -360,8 +361,8 @@ const promptFor = (activity: Activity, period: string, prLine: string | undefine
           ...activity.repos.map(repo => `- ${repo.name}: ${repo.branch} · ${plural(repo.dirtyFiles, 'file', 'files')} with uncommitted changes`),
         ]),
     '',
-    'Commits (newest first):',
-    activity.commits.length === 0 ? '(none)' : activity.commits.map(c => `${c.date}  ${c.repo === undefined ? '' : `[${c.repo}] `}${c.subject}`).join('\n'),
+    'Commits (oldest first):',
+    activity.commits.length === 0 ? '(none)' : [...activity.commits].reverse().map(c => `${c.date}  ${c.repo === undefined ? '' : `[${c.repo}] `}${c.subject}`).join('\n'),
     ...(activity.journal !== '' ? ['', 'Journal notes:', activity.journal] : []),
     ...(activity.sessions.length > 0
       ? ['', "AI sessions (Claude Code and Codex), oldest first, each with the engineer's own prompts:", formatAiSessions(activity.sessions, isoDay)]
@@ -431,9 +432,10 @@ async function generate($: EngineInterface, settings: Settings, days: number): P
     .map(session => session.title)
     .filter(title => title !== '' && !REVIEW_TITLE.test(title))
   const extra = [...new Set(titles), ...(prLine !== undefined ? [prLine] : [])]
+  const written = sections ?? fallbackSections(activity.commits, activity.branch, activity.dirtyFiles, extra, activity.sessions, activity.facts)
   return set({
     status: 'ready',
-    text: formatSections(sections ?? fallbackSections(activity.commits, activity.branch, activity.dirtyFiles, extra, activity.sessions, activity.facts), settings.style),
+    text: formatSections({ ...written, update: oldestFirst(written.update, activity.commits, activity.sessions, isoDay) }, settings.style),
     detail: `${found} · ${source}${failed}`,
     days,
   })

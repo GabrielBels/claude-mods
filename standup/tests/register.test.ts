@@ -1,7 +1,7 @@
 import { test, expect, mock } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
-import { defaultDays, factLine, factTag, fallbackSections, formatAiSessions, formatSections, lastStandup, momentLabel, neighboursOf, oneLinePerTicket, parseAiSessions, parseMeeting, parseSections, parseSvnLog, prFacts, reviewedLine, oneReviewLine, oneTicketPerBullet, reviewedPrs, settleTickets, ticketLines, ticketsOf, unseenCommits, workedTickets } from '../hooks/standup'
+import { defaultDays, factLine, factTag, fallbackSections, formatAiSessions, formatSections, lastStandup, momentLabel, neighboursOf, oldestFirst, oneLinePerTicket, parseAiSessions, parseMeeting, parseSections, parseSvnLog, prFacts, reviewedLine, oneReviewLine, oneTicketPerBullet, reviewedPrs, settleTickets, ticketLines, ticketsOf, unseenCommits, workedTickets } from '../hooks/standup'
 import type { AiSession } from '../hooks/standup'
 import { fakeHub } from './hub'
 
@@ -198,7 +198,7 @@ test('outside a git repository it covers every repository in the folder in one s
   expect(logged.sort()).toEqual(['/work/api --author=dev@shop.io', '/work/idle --author=dev@shop.io', '/work/web --author=web@shop.io'])
   const prompt = prompts[0] ?? ''
   expect(prompt).toContain('author dev@shop.io, web@shop.io')
-  expect(prompt).toContain('Commits (newest first):\n2026-10-07  [web] fix: focus ring\n2026-10-06  [api] feat(api): add pagination')
+  expect(prompt).toContain('Commits (oldest first):\n2026-10-06  [api] feat(api): add pagination\n2026-10-07  [web] fix: focus ring')
   expect(prompt).toContain('Repositories (2); name the repository in a bullet when it helps the reader:\n- api: main · 1 file with uncommitted changes\n- web: feature/cart · 0 files with uncommitted changes')
   expect(prompt).not.toContain('idle')
   expect(prompt).not.toContain('Branch:')
@@ -263,7 +263,7 @@ test('with svnAuthor it adds svn working copies, one level into a folder that is
   expect(svnCalls).toContain('/work/customer-branches/GLOBEX --non-interactive log --xml -r HEAD:{2026-10-06} --limit=500')
   const prompt = prompts[0] ?? ''
   expect(prompt).toContain('author dev@shop.io, alice')
-  expect(prompt).toContain('2026-10-07  [api] feat(api): add pagination\n2026-10-06  [customer-branches/GLOBEX] CORE-8061 fix null owner')
+  expect(prompt).toContain('2026-10-06  [customer-branches/GLOBEX] CORE-8061 fix null owner\n2026-10-07  [api] feat(api): add pagination')
   expect(prompt).toContain('- customer-branches/GLOBEX: Phoenix/branches/Clients/GLOBEX/Current · 2 files with uncommitted changes')
   expect(prompt).not.toContain('deep')
 })
@@ -296,7 +296,7 @@ test('with mods-hub: says hello, adds commits other sessions made on other branc
 
   await $.command.run(run())
   const prompt = state.prompts[0] ?? ''
-  expect(prompt).toContain('Commits (newest first):\n2026-10-07  fix(web): focus ring on the cart button\n2026-10-06  feat(api): add pagination to /orders')
+  expect(prompt).toContain('Commits (oldest first):\n2026-10-06  fix: rounding of cart totals\n2026-10-06  feat(api): add pagination to /orders\n2026-10-07  fix(web): focus ring on the cart button')
   expect(prompt).not.toContain('ancient')
   expect(prompt.match(/pagination/g)).toHaveLength(1)
   expect(prompt).toContain('Other Claude sessions on this project right now: 1 (27 turns, $3.20 so far).')
@@ -536,4 +536,25 @@ test('a ticket in Jira "Code Review" with an open PR keeps its bullet next to th
     'PROJ-2519: Translated the overdue notification and sent it for review (Code Review, PR #1961 open)',
     'PR #74 reviewed',
   ])
+})
+
+test('ticket bullets are listed oldest first, by the day their work began; other bullets keep their place', () => {
+  const day = (ms: number) => new Date(ms).toISOString().slice(0, 10)
+  const session = (title: string, start: string, prompts: string[] = []): AiSession => ({ source: 'claude', cwd: '/work/shop', branch: 'main', title, start, prompts })
+  const commits = [
+    { date: '2026-11-16', hash: 'a', subject: 'PROJ-3: add the export button' },
+    { date: '2026-11-13', hash: 'b', subject: 'chore: bump tooling' },
+    { date: '2026-11-13', hash: 'c', subject: 'PROJ-1: fix the pager' },
+  ]
+  const sessions = [session('PROJ-2 spike', '2026-11-14T15:00:00Z'), session('Tooling', '2026-11-12T09:00:00Z', ['look at PROJ-3 too'])]
+  const update = ['PROJ-2: Mapped the references', 'Paired with Sam', 'PROJ-9: Unknown work', 'PROJ-1: Fixed the pager', 'PROJ-3: Added the export button', 'PR #142 reviewed']
+  expect(oldestFirst(update, commits, sessions, day)).toEqual([
+    'PROJ-3: Added the export button',
+    'Paired with Sam',
+    'PROJ-1: Fixed the pager',
+    'PROJ-2: Mapped the references',
+    'PROJ-9: Unknown work',
+    'PR #142 reviewed',
+  ])
+  expect(fallbackSections([{ date: '2026-11-16', hash: 'd', subject: 'docs: second' }, { date: '2026-11-13', hash: 'e', subject: 'docs: first' }], 'main', 0).update).toEqual(['First', 'Second'])
 })

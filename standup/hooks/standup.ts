@@ -201,12 +201,33 @@ export const oneLinePerTicket = (items: readonly string[]): string[] => {
 }
 
 /**
+ * The ticket bullets (`KEY: …`) in the order their work began, oldest first: the earliest day a commit subject, or a
+ * session's title, branch or prompts, names the ticket. They swap among the places ticket bullets hold, so other bullets
+ * stay where they are; a ticket the activity never names goes last, and a tie keeps its order. `day` formats a time as `YYYY-MM-DD`.
+ */
+export const oldestFirst = (items: readonly string[], commits: readonly Commit[], sessions: readonly AiSession[], day: (ms: number) => string): string[] => {
+  const first = new Map<string, string>()
+  const seen = (text: string, date: string): void => {
+    for (const key of text.match(TICKETS) ?? []) {
+      const known = first.get(key)
+      if (known === undefined || date < known) first.set(key, date)
+    }
+  }
+  for (const commit of commits) seen(commit.subject, commit.date)
+  for (const session of sessions) seen([session.title, session.branch, ...session.prompts].join(' '), day(Date.parse(session.start)))
+  const keyOf = (item: string): string | undefined => /^([A-Z][A-Z0-9]+-\d+)\s*:/.exec(item)?.[1]
+  const began = (item: string): string => first.get(keyOf(item) ?? '') ?? '~'
+  const tickets = items.filter(item => keyOf(item) !== undefined).sort((a, b) => (began(a) < began(b) ? -1 : began(a) > began(b) ? 1 : 0))
+  return items.map(item => (keyOf(item) === undefined ? item : (tickets.shift() ?? item)))
+}
+
+/**
  * A standup built from the facts alone, for when the model cannot write one: one line per ticket from the commits and
- * `sessions`, then the commits tied to no ticket, then `extra` (session titles with no ticket, the PR reviews line),
- * then the uncommitted changes.
+ * `sessions`, then the commits tied to no ticket (oldest first, from `commits` newest first as git log lists them), then
+ * `extra` (session titles with no ticket, the PR reviews line), then the uncommitted changes.
  */
 export const fallbackSections = (commits: readonly Commit[], branch: string, dirtyFiles: number, extra: readonly string[] = [], sessions: readonly AiSession[] = [], facts: TicketFacts = {}): Sections => {
-  const subjects = [...new Set(commits.filter(commit => ticketOf(commit.subject) === undefined).map(commit => describe(commit.subject)))]
+  const subjects = [...new Set([...commits].reverse().filter(commit => ticketOf(commit.subject) === undefined).map(commit => describe(commit.subject)))]
   const update = [...ticketLines(commits, sessions, facts), ...subjects]
   if (update.length > MAX_FALLBACK_ITEMS) update.splice(MAX_FALLBACK_ITEMS, Infinity, `…and ${update.length - MAX_FALLBACK_ITEMS} more`)
   update.push(...extra.filter(item => !update.includes(item)))
