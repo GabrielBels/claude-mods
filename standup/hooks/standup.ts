@@ -2,8 +2,8 @@
 
 export type Style = 'plain' | 'markdown' | 'slack'
 
-/** The standup update: one list of what was done since the last standup, and the blockers. */
-export type Sections = { update: string[]; blockers: string[] }
+/** The standup update: the two-sentence summary to say aloud (when the model wrote one), the list of what was done since the last standup, and the blockers. */
+export type Sections = { update: string[]; blockers: string[]; summary?: string }
 
 /** `repo` names the repository when the standup covers several. */
 export type Commit = { date: string; hash: string; subject: string; repo?: string }
@@ -99,20 +99,22 @@ export const parseSvnLog = (xml: string, author: string, sinceMs: number, day: (
   return commits
 }
 
-const HEADINGS: Record<keyof Sections, RegExp> = {
+const HEADINGS: Record<'summary' | 'update' | 'blockers', RegExp> = {
+  summary: /^\W*summary\W*$/i,
   update: /^\W*updates?\W*$/i,
   blockers: /^\W*blockers?\W*$/i,
 }
 
-/** Splits the model's `UPDATE: / BLOCKERS:` answer; undefined when it is not in that shape. */
+/** Splits the model's `SUMMARY: / UPDATE: / BLOCKERS:` answer (the summary is optional); undefined when it is not in that shape. */
 export const parseSections = (text: string): Sections | undefined => {
-  const sections: Sections = { update: [], blockers: [] }
-  let current: keyof Sections | undefined
+  const sections = { update: [] as string[], blockers: [] as string[] }
+  const summary: string[] = []
+  let current: 'summary' | 'update' | 'blockers' | undefined
   let headings = 0
   for (const raw of text.split('\n')) {
     const line = raw.trim()
     if (line === '') continue
-    const heading = (Object.keys(HEADINGS) as (keyof Sections)[]).find(key => HEADINGS[key].test(line.replace(/[:*_#]/g, ' ').trim()))
+    const heading = (Object.keys(HEADINGS) as (keyof typeof HEADINGS)[]).find(key => HEADINGS[key].test(line.replace(/[:*_#]/g, ' ').trim()))
     if (heading !== undefined) {
       current = heading
       headings += 1
@@ -120,9 +122,12 @@ export const parseSections = (text: string): Sections | undefined => {
     }
     if (current === undefined) continue
     const item = line.replace(/^([-*•]|\d+[.)])\s*/, '').trim()
-    if (item !== '') sections[current].push(item)
+    if (item === '') continue
+    if (current === 'summary') summary.push(item)
+    else sections[current].push(item)
   }
-  return headings >= 1 && sections.update.length > 0 ? sections : undefined
+  const said = summary.join(' ')
+  return headings >= 1 && sections.update.length > 0 ? { ...sections, ...(said !== '' ? { summary: said } : {}) } : undefined
 }
 
 /** A Jira key (PROJ-2458, CORE-8061) or requirement (REQ-012). */
@@ -235,9 +240,12 @@ export const fallbackSections = (commits: readonly Commit[], branch: string, dir
   return { update: update.length > 0 ? update : ['No commits'], blockers: ['None'] }
 }
 
+/** One of the latest comments on a Jira ticket, as scripts/jira.py reads it; `isMine` when you wrote it. */
+export type JiraComment = { author: string; created: string; isMine: boolean; text: string }
+
 /** What Jira and GitHub say about one ticket; each part is absent when that source is off or does not know the ticket. */
 export type TicketFact = {
-  jira?: { status: string; isDone: boolean; assignee: string; isMine: boolean }
+  jira?: { status: string; isDone: boolean; assignee: string; isMine: boolean; comments?: JiraComment[] }
   pr?: { number: number; state: 'OPEN' | 'MERGED' | 'CLOSED'; mergedAt: string }
 }
 export type TicketFacts = Record<string, TicketFact>
@@ -282,6 +290,11 @@ export const factLine = (key: string, fact: TicketFact): string => {
   const pr = fact.pr === undefined ? [] : [`PR #${fact.pr.number} ${fact.pr.state.toLowerCase()}${fact.pr.mergedAt !== '' ? ` ${fact.pr.mergedAt.slice(0, 10)}` : ''}`]
   return `${key}: ${[...jira, ...pr].join('; ')}`
 }
+
+/** The latest Jira comments of each ticket in `facts` for the model, newest first, one line each: `PROJ-2440 · 2026-11-18T13:26 · Jane Doe: …` (`you` for your own). */
+export const commentLines = (facts: TicketFacts): string[] =>
+  Object.entries(facts).flatMap(([key, fact]) =>
+    (fact.jira?.comments ?? []).map(comment => `${key} · ${comment.created} · ${comment.isMine ? 'you' : comment.author}: ${comment.text}`))
 
 /**
  * The tickets the work was on: those in commit subjects, in the titles and branches of sessions that are no reviews, and
@@ -357,6 +370,7 @@ export const formatSections = (sections: Sections, style: Style): string => {
     [heading(title), ...(items.length > 0 ? items : ['None']).map(item => `${bullet} ${item}`)].join('\n')
   const blockers = sections.blockers.filter(item => !/^none\.?$/i.test(item))
   return [
+    ...(sections.summary !== undefined && sections.summary !== '' ? [`${heading('Summary')} ${sections.summary}`] : []),
     sections.update.map(item => `${bullet} ${item}`).join('\n'),
     ...(blockers.length > 0 ? [block('Blockers', blockers)] : []),
   ].join('\n\n')

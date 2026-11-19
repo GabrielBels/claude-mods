@@ -5,7 +5,8 @@ Usage: python3 -I jira.py '{"keys": ["PROJ-1", ...], "name": "<your name>"}'
 Jira access comes from ~/.config/jira.json ({"apiBase", "email", "token"}, mode 600), with JIRA_API_BASE,
 JIRA_API_EMAIL and JIRA_API_TOKEN over it; the credentials are only sent to apiBase. A ticket is yours when its assignee is the token's
 account (/myself), or, when the token cannot read /myself, has the token's email or `name`.
-Output: {key: {status, isDone, assignee, isMine}} for each key Jira answered; exit 2 when Jira is not configured.
+Output: {key: {status, isDone, assignee, isMine, comments}} for each key Jira answered, `comments` being the latest
+3 comments, newest first, as {author, created, isMine, text} (text cut to 400 characters); exit 2 when Jira is not configured.
 """
 
 import base64
@@ -18,6 +19,8 @@ import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 
 TIMEOUT_S = 20
+COMMENTS = 3
+COMMENT_CHARS = 400
 
 
 CONFIG_PATH = os.path.expanduser("~/.config/jira.json")
@@ -45,6 +48,17 @@ def get(url, auth):
         return None
 
 
+def plain(node):
+    """The text of an Atlassian Document Format node (or a plain string), blocks separated by a space."""
+    if isinstance(node, str):
+        return node
+    if not isinstance(node, dict):
+        return ""
+    text = node.get("text", "") if node.get("type") == "text" else ""
+    text += "".join(plain(child) for child in node.get("content") or [])
+    return text + (" " if node.get("type") in ("paragraph", "heading", "listItem") else "")
+
+
 def main():
     request = json.loads(sys.argv[1])
     found = config()
@@ -57,6 +71,21 @@ def main():
 
     def issue(key):
         return key, get(f"{api}/issue/{urllib.parse.quote(key)}?fields=status,assignee", auth)
+
+    def comments(key):
+        data = get(f"{api}/issue/{urllib.parse.quote(key)}/comment?orderBy=-created&maxResults={COMMENTS}", auth)
+        found = []
+        for comment in (data or {}).get("comments") or []:
+            author = comment.get("author") or {}
+            text = " ".join(plain(comment.get("body")).split())
+            if text:
+                found.append({
+                    "author": author.get("displayName") or "",
+                    "created": (comment.get("created") or "")[:16],
+                    "isMine": bool(me) and author.get("accountId") == me,
+                    "text": text[:COMMENT_CHARS],
+                })
+        return found
 
     tickets = {}
     with ThreadPoolExecutor(max_workers=6) as pool:
@@ -75,6 +104,7 @@ def main():
                 "isDone": (status.get("statusCategory") or {}).get("key") == "done",
                 "assignee": assignee.get("displayName") or "",
                 "isMine": is_mine,
+                "comments": comments(key),
             }
     json.dump(tickets, sys.stdout, ensure_ascii=False)
 

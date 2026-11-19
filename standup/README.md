@@ -6,12 +6,15 @@
 
 ```text
 /standup
+Summary: I made the recycle bin pager stay in view (PROJ-2458) and mapped every order.CreatedBy reference (PROJ-2425). PROJ-2458 is in Dev Testing with its PR merged, and PROJ-2425 continues with the change tracked in PROJ-2479.
+
 - PROJ-2458: Made the recycle bin pager stay in view by sizing the grid wrapper (Dev Testing, PR #1904 merged)
 - PROJ-2425: Mapped every order.CreatedBy reference and opened PROJ-2479 for the change (In Development)
 - PRs #142 and #1913 reviewed
 ```
 
 ## What you get
+- **A two-sentence summary on top** to say aloud at the daily standup: what you did, then where it stands and what happens next. It is written from the activity, the Jira statuses and the latest Jira comments of each ticket, and it never calls a ticket in a Blocked status unblocked: it says what you delivered and what the ticket waits on.
 - **One bullet per ticket** or requirement (`PROJ-2458: …`, `REQ-012: …`), each naming a single ticket.
 - **Oldest first:** ticket bullets follow the day their work began, from the earliest commit or session that names the ticket.
 - **Real status at the end of each bullet**, from your pull requests (`gh`) and, with Jira set up, from Jira: `To Do`, `Dev Testing, PR #1890 merged`, `Blocked, assigned to Jane Doe`.
@@ -52,6 +55,6 @@ To read Jira, create `~/.config/jira.json` as the [repository README](../README.
 - `/standup` runs `git log --author=<you>` over the window, `git status`, and reads any session-journal notes in `.claude/journal/`, then calls the model once.
 - Sessions are read by `scripts/sessions.py` (`python3 -I`), because a transcript can be tens of MB. It opens only transcripts touched in the window, skips project folders outside the scope by name and every `subagents/` folder.
 - PR reviews are found in sessions whose title or prompts speak of a review and name a PR (`PR #1913`, `review #142`, `pull/1913`). The reviews line is added even when the model leaves it out.
-- Ticket status: `gh pr list --author @me --state all` in each repository gives the newest PR whose title or branch names the ticket, and `scripts/jira.py` reads each ticket's status and assignee. A source that cannot be read is named in the detail line.
+- Ticket status: `gh pr list --author @me --state all` in each repository gives the newest PR whose title or branch names the ticket, and `scripts/jira.py` reads each ticket's status, assignee and latest 3 comments (each cut to 400 characters, sent to the model with the activity). A source that cannot be read is named in the detail line.
 - With the mods-hub plugin installed, commits other live sessions made on branches `git log` does not reach (a worktree, a fix branch) are added too, and the model is told how many other sessions are working on the project.
 - It knows only what git, the journal, your sessions, GitHub and Jira know: meetings and work done elsewhere are yours to add after pasting.

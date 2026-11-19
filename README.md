@@ -6,7 +6,7 @@ They read what you already left behind in git, Jira and your Claude Code and Cod
 
 | Mod | You type | You get |
 | --- | --- | --- |
-| [**standup**](standup/README.md) | `/standup` | One line per ticket about what you did since the last standup, each ending with the ticket's real status from Jira and GitHub. |
+| [**standup**](standup/README.md) | `/standup` | A two-sentence summary to say aloud, then one line per ticket about what you did since the last standup, each ending with the ticket's real status from Jira and GitHub. |
 | [**handoff**](handoff/README.md) | `/handoff PROJ-2458` | A short handoff note (Goal, Status, What changed, Next steps, Gotchas, How to verify) built from Jira, git, your other sessions and the current conversation. |
 | [**tick-sprint**](tick-sprint/README.md) | `/tick 72` | Your 72 sprint hours split across your Jira epics, weighted by how long each issue was really in progress, ready to log in Tick. |
 | [**whats-in-qa**](whats-in-qa/README.md) | `/whats-in-qa` | The sprint tickets whose code is already in the build deployed to QA, plus the ones partly deployed or merged and waiting for a deploy. |

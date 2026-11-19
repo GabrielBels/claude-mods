@@ -2,7 +2,7 @@ import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
 import type { StandupView } from '../types'
-import { defaultDays, factLine, fallbackSections, formatAiSessions, formatSections, lastStandup, momentLabel, neighboursOf, oldestFirst, oneLinePerTicket, parseAiSessions, parseLog, parseMeeting, parseSections, oneReviewLine, oneTicketPerBullet, parseSvnLog, prFacts, REVIEW_TITLE, reviewedLine, reviewedPrs, settleTickets, sinceLabel, ticketOf, ticketsOf, unseenCommits, workedTickets } from './standup'
+import { commentLines, defaultDays, factLine, fallbackSections, formatAiSessions, formatSections, lastStandup, momentLabel, neighboursOf, oldestFirst, oneLinePerTicket, parseAiSessions, parseLog, parseMeeting, parseSections, oneReviewLine, oneTicketPerBullet, parseSvnLog, prFacts, REVIEW_TITLE, reviewedLine, reviewedPrs, settleTickets, sinceLabel, ticketOf, ticketsOf, unseenCommits, workedTickets } from './standup'
 import type { AiSession, Commit, Meeting, Neighbours, Style, TicketFact, TicketFacts } from './standup'
 import { paneFailure } from './shared/render-safe'
 
@@ -35,7 +35,9 @@ const REPO_BATCH = 8
 const SYSTEM = [
   'You write the update a software engineer gives at their daily standup from their real activity since the last standup: commits, AI coding sessions (Claude Code, Codex) and notes.',
   'Sessions are work too: investigation, brainstorming, spikes, testing, ticket refinement and reviews.',
-  'Write one list, each bullet "<TICKET>: <what was done>", where <TICKET> is the Jira key (PROJ-2458, CORE-8061) or requirement (REQ-012) in upper case:',
+  'Start with SUMMARY: exactly two sentences, in the first person and the past tense for the first and the present or future for the second, that the engineer can say aloud at the standup. The first says what they did since the last standup, grouped (several tickets in one sentence, each named by its key once); the second says where it stands now and what happens next, taken from the Jira statuses and the latest Jira comments.',
+  'In the summary, say only what the activity, the statuses and the comments prove: a ticket in a Blocked status is never described as unblocked, resolved or done; say what was delivered or handed over and what it waits on (a deployment card, a script run by support, a customer upload, a release window) as the latest comments say.',
+  'Then write the UPDATE list, each bullet "<TICKET>: <what was done>", where <TICKET> is the Jira key (PROJ-2458, CORE-8061) or requirement (REQ-012) in upper case:',
   'exactly one bullet per ticket and one ticket per bullet (never name a second ticket key in a bullet), merging all its commits and sessions into one summary under 25 words, with the next step when the activity shows one,',
   'ending with where the ticket stands: (started), (in progress), (PR opened) or (merged, PR #1904).',
   'A ticket the prompts show the engineer created or refined while on another ticket gets its own bullet (PROJ-2479: Opened the ticket for the column change), and the other ticket\'s bullet does not name it.',
@@ -370,11 +372,15 @@ const promptFor = (activity: Activity, period: string, prLine: string | undefine
     ...(Object.keys(activity.facts).length > 0
       ? ['', 'Ticket status from Jira and GitHub:', ...Object.entries(activity.facts).map(([key, fact]) => `- ${factLine(key, fact)}`)]
       : []),
+    ...(commentLines(activity.facts).length > 0
+      ? ['', 'Latest Jira comments on those tickets, newest first (what the ticket waits on, who answered):', ...commentLines(activity.facts).map(line => `- ${line}`)]
+      : []),
     ...(activity.neighbours.sessions > 0
       ? ['', `Other Claude sessions on this project right now: ${activity.neighbours.sessions} (${activity.neighbours.turns} turns, $${activity.neighbours.usd.toFixed(2)} so far).`]
       : []),
     '',
-    'Answer with exactly these two headings, each followed by "- " bullets, and nothing else:',
+    'Answer with exactly these three headings, nothing else: SUMMARY: followed by the two sentences on the next line, then UPDATE: and BLOCKERS: each followed by "- " bullets:',
+    'SUMMARY:',
     'UPDATE:',
     'BLOCKERS:',
   ].join('\n')

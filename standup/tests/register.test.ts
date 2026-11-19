@@ -1,7 +1,7 @@
 import { test, expect, mock } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
-import { defaultDays, factLine, factTag, fallbackSections, formatAiSessions, formatSections, lastStandup, momentLabel, neighboursOf, oldestFirst, oneLinePerTicket, parseAiSessions, parseMeeting, parseSections, parseSvnLog, prFacts, reviewedLine, oneReviewLine, oneTicketPerBullet, reviewedPrs, settleTickets, ticketLines, ticketsOf, unseenCommits, workedTickets } from '../hooks/standup'
+import { commentLines, defaultDays, factLine, factTag, fallbackSections, formatAiSessions, formatSections, lastStandup, momentLabel, neighboursOf, oldestFirst, oneLinePerTicket, parseAiSessions, parseMeeting, parseSections, parseSvnLog, prFacts, reviewedLine, oneReviewLine, oneTicketPerBullet, reviewedPrs, settleTickets, ticketLines, ticketsOf, unseenCommits, workedTickets } from '../hooks/standup'
 import type { AiSession } from '../hooks/standup'
 import { fakeHub } from './hub'
 
@@ -98,6 +98,14 @@ test('standup text: sections parse, fall back, and format for each paste target'
   expect(formatSections({ update: ['A', 'B'], blockers: ['None'] }, 'plain')).toBe('- A\n- B')
   expect(formatSections({ update: ['A'], blockers: ['C'] }, 'slack')).toBe('• A\n\n*Blockers*\n• C')
   expect(formatSections({ update: ['A'], blockers: ['C'] }, 'markdown')).toBe('- A\n\n**Blockers**\n- C')
+  const said = parseSections('SUMMARY:\nI shipped X. It waits on a deployment card.\nUPDATE:\n- PROJ-1: Shipped X\nBLOCKERS:\n- None')
+  expect(said).toEqual({ summary: 'I shipped X. It waits on a deployment card.', update: ['PROJ-1: Shipped X'], blockers: ['None'] })
+  expect(formatSections({ ...said!, blockers: ['None'] }, 'plain')).toBe('Summary: I shipped X. It waits on a deployment card.\n\n- PROJ-1: Shipped X')
+  expect(formatSections({ summary: 'S.', update: ['A'], blockers: [] }, 'slack')).toBe('*Summary* S.\n\n• A')
+  expect(commentLines({ 'PROJ-1': { jira: { status: 'Blocked', isDone: false, assignee: 'Dev', isMine: true, comments: [{ author: 'Dev', created: '2026-11-18T13:11', isMine: true, text: 'Please create a deployment card.' }, { author: 'Jane Doe', created: '2026-11-18T13:26', isMine: false, text: 'On it.' }] } }, 'PROJ-2': { jira: { status: 'Done', isDone: true, assignee: 'Dev', isMine: true } } })).toEqual([
+    'PROJ-1 · 2026-11-18T13:11 · you: Please create a deployment card.',
+    'PROJ-1 · 2026-11-18T13:26 · Jane Doe: On it.',
+  ])
   const fallback = fallbackSections([{ date: '', hash: '', subject: 'feat(api): add pagination' }], 'main', 2)
   expect(fallback).toEqual({ update: ['Add pagination', '2 files in progress on main'], blockers: ['None'] })
   expect(defaultDays(MONDAY)).toBe(3)
@@ -497,6 +505,22 @@ test('with Jira configured, Jira and your PRs tell the model where each ticket s
   const ui = await $.ui.mount({ plugin: 'standup', surface: 'terminal', component: 'Pane', requestId: 'standup', props: PANE_PROPS })
   await ui.press({ key: 'copy' })
   expect(state.copies[0]).toBe('- PROJ-2425: Mapped references (In Progress)\n- PROJ-2440: Handed over (In Progress, assigned to Jane Doe)\n- PROJ-2219: Fixed totals (PR #1890 merged)')
+})
+
+test('the model gets the latest Jira comments and writes a two-sentence summary that heads the standup', { options: { ...DSU } }, async ($, on) => {
+  const state = world(on, {
+    now: Date.UTC(2026, 10, 4, 21, 55),
+    log: '2026-11-04\ta1b2c3d\tPROJ-2219: fix totals',
+    jira: { 'PROJ-2219': { status: 'Blocked', isDone: false, assignee: 'Dev', isMine: true, comments: [{ author: 'Dev', created: '2026-11-04T13:11', isMine: true, text: 'Please create a deployment card for the repair script.' }] } },
+    reply: 'SUMMARY:\nI delivered the repair script for PROJ-2219. It stays blocked until support creates the deployment card.\nUPDATE:\n- PROJ-2219: Prepared the repair script (in progress)\nBLOCKERS:\n- None',
+  })
+  await $.command.run(run())
+  const prompt = state.prompts[0] ?? ''
+  expect(prompt).toContain('Latest Jira comments on those tickets, newest first (what the ticket waits on, who answered):\n- PROJ-2219 · 2026-11-04T13:11 · you: Please create a deployment card for the repair script.')
+  expect(prompt).toContain('SUMMARY:\nUPDATE:\nBLOCKERS:')
+  const ui = await $.ui.mount({ plugin: 'standup', surface: 'terminal', component: 'Pane', requestId: 'standup', props: PANE_PROPS })
+  await ui.press({ key: 'copy' })
+  expect(state.copies[0]).toBe('Summary: I delivered the repair script for PROJ-2219. It stays blocked until support creates the deployment card.\n\n- PROJ-2219: Prepared the repair script (Blocked)')
 })
 
 test('without Jira configured, Jira is left out quietly, and a failing gh is named in the detail line', async ($, on) => {
